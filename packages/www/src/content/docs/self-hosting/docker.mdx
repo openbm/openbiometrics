@@ -1,0 +1,66 @@
+---
+title: Docker Deployment
+description: Self-host OpenBiometrics with Docker
+---
+
+# Docker Deployment
+
+Run OpenBiometrics on your own infrastructure. Free, no API key required.
+
+## Quick Start
+
+```bash
+docker run -p 8000:8000 ghcr.io/openbiometrics/api:latest
+```
+
+API available at `http://localhost:8000`. Swagger docs at `http://localhost:8000/docs`.
+
+## With GPU
+
+```yaml
+# docker-compose.yml
+services:
+  api:
+    image: ghcr.io/openbiometrics/api:latest
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./watchlists:/app/watchlists
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+```
+
+```bash
+docker compose up
+```
+
+## CPU Only
+
+```bash
+docker run -p 8000:8000 -e DEVICE=cpu ghcr.io/openbiometrics/api:latest
+```
+
+## Persistent Storage
+
+Mount volumes for watchlists and models:
+
+```bash
+docker run -p 8000:8000 \
+  -v $(pwd)/watchlists:/app/watchlists \
+  -v $(pwd)/models:/app/models \
+  ghcr.io/openbiometrics/api:latest
+```
+
+## Point Your SDK at It
+
+```ts
+const ob = new OpenBiometrics({
+  apiKey: 'any-value',
+  baseUrl: 'http://your-server:8000',
+});
+```

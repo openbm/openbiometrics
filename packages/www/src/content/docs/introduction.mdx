@@ -1,0 +1,97 @@
+---
+title: Introduction
+description: Open-source biometric platform for developers
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
+# OpenBiometrics
+
+**Face recognition, liveness detection, and biometric verification — as simple as an API call.**
+
+OpenBiometrics gives developers production-ready biometric capabilities without the complexity of training ML models or managing infrastructure.
+
+## What You Get
+
+- **Face Detection** — Detect faces with quality scoring, landmarks, and demographics
+- **1:1 Verification** — Compare two face images to confirm identity
+- **1:N Identification** — Search faces against watchlists of any size
+- **Liveness Detection** — Passive anti-spoofing, no user interaction required
+- **Quality Assessment** — ISO-compliant face image quality scoring
+- **Age & Gender** — Demographic estimation from face images
+
+## Quick Example
+
+<Tabs>
+  <TabItem label="Node.js">
+    ```ts
+    import { OpenBiometrics } from 'openbiometrics';
+    import { readFileSync } from 'fs';
+
+    const ob = new OpenBiometrics({ apiKey: 'ob_live_...' });
+
+    // Detect faces
+    const photo = readFileSync('photo.jpg');
+    const { faces } = await ob.faces.detect(photo);
+
+    console.log(`Found ${faces.length} faces`);
+    console.log(`Age: ${faces[0].demographics?.age}`);
+    console.log(`Quality: ${faces[0].quality?.overall_score}/100`);
+    console.log(`Live: ${faces[0].liveness?.is_live}`);
+    ```
+  </TabItem>
+  <TabItem label="Python">
+    ```python
+    from openbiometrics_sdk import OpenBiometrics
+
+    ob = OpenBiometrics(api_key="ob_live_...")
+
+    # Detect faces
+    result = ob.faces.detect("photo.jpg")
+
+    for face in result["faces"]:
+        print(f"Age: {face['demographics']['age']}")
+        print(f"Quality: {face['quality']['overall_score']}/100")
+        print(f"Live: {face['liveness']['is_live']}")
+    ```
+  </TabItem>
+  <TabItem label="cURL">
+    ```bash
+    curl -X POST https://api.openbiometrics.dev/api/v1/detect \
+      -H "Authorization: Bearer ob_live_..." \
+      -F "image=@photo.jpg"
+    ```
+  </TabItem>
+</Tabs>
+
+## Why OpenBiometrics?
+
+| Feature | OpenBiometrics | Proprietary Vendors |
+|---------|---------------|-------------------|
+| Open source | Yes (MIT) | No |
+| Self-hostable | Yes (Docker, Jetson) | Rarely |
+| Cloud API | Yes | Yes |
+| Pricing | Free self-hosted, usage-based cloud | $$$$ per year |
+| Edge deployment | Jetson, ARM, x86 | Limited |
+| NIST FRVT tested | Coming soon | Some |
+
+## Architecture
+
+```
+Your App
+   │
+   ├── npm install openbiometrics  (Node.js SDK)
+   ├── pip install openbiometrics  (Python SDK)
+   └── REST API (curl, any language)
+          │
+          ▼
+   OpenBiometrics API
+          │
+          ├── Face Detection (SCRFD)
+          ├── Face Recognition (ArcFace, 99.86% LFW)
+          ├── Liveness (MiniFASNet)
+          ├── Quality (ISO 29794-5)
+          └── Demographics (Age/Gender)
+```
+
+Ready to start? Head to the [Quickstart](/docs/quickstart) guide.

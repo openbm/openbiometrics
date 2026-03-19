@@ -1,0 +1,50 @@
+import { defineConfig } from 'astro/config';
+import starlight from '@astrojs/starlight';
+import react from '@astrojs/react';
+
+export default defineConfig({
+  integrations: [
+    starlight({
+      title: 'OpenBiometrics',
+      description: 'Open-source biometric platform for developers',
+      social: [
+        { icon: 'github', label: 'GitHub', href: 'https://github.com/openbiometrics/openbiometrics' },
+      ],
+      customCss: ['./src/styles/custom.css'],
+      sidebar: [
+        {
+          label: 'Getting Started',
+          items: [
+            { label: 'Introduction', slug: 'introduction' },
+            { label: 'Quickstart', slug: 'quickstart' },
+            { label: 'Authentication', slug: 'authentication' },
+          ],
+        },
+        {
+          label: 'API Reference',
+          items: [
+            { label: 'Face Detection', slug: 'api/face-detection' },
+            { label: 'Face Verification', slug: 'api/face-verification' },
+            { label: 'Liveness Check', slug: 'api/liveness' },
+            { label: 'Watchlists', slug: 'api/watchlists' },
+          ],
+        },
+        {
+          label: 'SDKs',
+          items: [
+            { label: 'Node.js', slug: 'sdks/nodejs' },
+            { label: 'Python', slug: 'sdks/python' },
+          ],
+        },
+        {
+          label: 'Self-Hosting',
+          items: [
+            { label: 'Docker', slug: 'self-hosting/docker' },
+            { label: 'Jetson / Edge', slug: 'self-hosting/edge' },
+          ],
+        },
+      ],
+    }),
+    react(),
+  ],
+});

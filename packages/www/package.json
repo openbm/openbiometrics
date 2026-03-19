@@ -1,0 +1,17 @@
+{
+  "name": "@openbiometrics/www",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "dev": "astro dev --port 4000",
+    "build": "astro build",
+    "preview": "astro preview"
+  },
+  "dependencies": {
+    "@astrojs/react": "^5.0.1",
+    "@astrojs/starlight": "^0.38.1",
+    "astro": "^6.0.6",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4"
+  }
+}

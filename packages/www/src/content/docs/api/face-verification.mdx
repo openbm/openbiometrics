@@ -1,0 +1,52 @@
+---
+title: Face Verification (1:1)
+description: Compare two face images to verify identity
+---
+
+# Face Verification
+
+Compare two face images to determine if they belong to the same person. Use cases: ID verification, KYC, access control.
+
+## Endpoint
+
+```
+POST /api/v1/verify
+```
+
+## Request
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `image1` | file | Yes | First face image |
+| `image2` | file | Yes | Second face image |
+| `threshold` | float | No | Match threshold (default: 0.4) |
+
+```bash
+curl -X POST https://api.openbiometrics.dev/api/v1/verify \
+  -H "Authorization: Bearer ob_live_..." \
+  -F "image1=@id_card.jpg" \
+  -F "image2=@selfie.jpg" \
+  -F "threshold=0.4"
+```
+
+## Response
+
+```json
+{
+  "is_match": true,
+  "similarity": 0.782,
+  "face1": { "detection": { ... }, "quality": { ... } },
+  "face2": { "detection": { ... }, "quality": { ... } }
+}
+```
+
+## Threshold Guide
+
+| Threshold | FAR | Use Case |
+|-----------|-----|----------|
+| 0.3 | ~1e-4 | Convenience (unlock phone) |
+| 0.4 | ~1e-6 | Standard verification (KYC) |
+| 0.5 | ~1e-8 | High security (border control) |
+| 0.6 | ~1e-10 | Maximum security |
+
+Higher threshold = fewer false matches, but more false rejections.

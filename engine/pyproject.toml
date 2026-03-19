@@ -1,0 +1,27 @@
+[project]
+name = "openbiometrics-engine"
+version = "0.1.0"
+description = "Open-source biometric engine — face detection, recognition, liveness, quality, demographics"
+requires-python = ">=3.10"
+dependencies = [
+    "insightface>=0.7.3",
+    "onnxruntime>=1.18",
+    "opencv-python-headless>=4.10",
+    "numpy>=1.26",
+    "faiss-cpu>=1.8",
+    "pillow>=10.0",
+]
+
+[project.optional-dependencies]
+gpu = ["onnxruntime-gpu>=1.18"]
+dev = ["pytest>=8.0", "ruff>=0.5"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["openbiometrics*"]
+
+[tool.ruff]
+line-length = 100

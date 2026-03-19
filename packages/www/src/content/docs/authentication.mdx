@@ -1,0 +1,47 @@
+---
+title: Authentication
+description: How to authenticate with the OpenBiometrics API
+---
+
+# Authentication
+
+All API requests require authentication via a Bearer token in the `Authorization` header.
+
+## API Keys
+
+API keys are prefixed to identify their environment:
+
+| Prefix | Environment | Description |
+|--------|------------|-------------|
+| `ob_live_` | Production | Real API calls, metered usage |
+| `ob_test_` | Sandbox | Free, rate-limited, for development |
+
+## Usage
+
+```bash
+curl -X POST https://api.openbiometrics.dev/api/v1/detect \
+  -H "Authorization: Bearer ob_live_sk_abc123..." \
+  -F "image=@photo.jpg"
+```
+
+The SDKs handle this automatically:
+
+```ts
+const ob = new OpenBiometrics({ apiKey: 'ob_live_sk_abc123...' });
+```
+
+```python
+ob = OpenBiometrics(api_key="ob_live_sk_abc123...")
+```
+
+## Self-Hosted
+
+When self-hosting, authentication is optional. You can configure API keys via environment variables or disable auth entirely for internal deployments.
+
+```bash
+# Disable auth
+docker run -e AUTH_DISABLED=true -p 8000:8000 ghcr.io/openbiometrics/api
+
+# Custom API key
+docker run -e API_KEY=my-secret-key -p 8000:8000 ghcr.io/openbiometrics/api
+```

@@ -1,0 +1,104 @@
+---
+title: Python SDK
+description: Install and use the OpenBiometrics Python SDK
+---
+
+# Python SDK
+
+```bash
+pip install openbiometrics
+```
+
+## Initialize
+
+```python
+import os
+from openbiometrics_sdk import OpenBiometrics
+
+ob = OpenBiometrics(
+    api_key=os.environ["OB_API_KEY"],
+    # base_url="http://localhost:8000",  # for self-hosted
+)
+```
+
+## Face Detection
+
+```python
+result = ob.faces.detect("photo.jpg")
+
+for face in result["faces"]:
+    print(f"Age: {face['demographics']['age']}")
+    print(f"Gender: {face['demographics']['gender']}")
+    print(f"Quality: {face['quality']['overall_score']:.0f}/100")
+    print(f"Live: {face['liveness']['is_live']}")
+```
+
+## 1:1 Verification
+
+```python
+result = ob.faces.verify("id_card.jpg", "selfie.jpg")
+
+if result["is_match"]:
+    print(f"Identity verified ({result['similarity']:.1%} match)")
+else:
+    print("Mismatch")
+```
+
+## Watchlist Operations
+
+```python
+# Enroll
+result = ob.watchlists.enroll("alice.jpg", label="Alice")
+print(f"Enrolled: {result['identity_id']}")
+
+# Identify
+result = ob.watchlists.identify("unknown.jpg")
+for match in result["matches"]:
+    print(f"{match['label']}: {match['similarity']:.1%}")
+
+# Remove
+ob.watchlists.remove(result["identity_id"])
+
+# List
+print(ob.watchlists.list())
+```
+
+## With Flask
+
+```python
+from flask import Flask, request, jsonify
+from openbiometrics_sdk import OpenBiometrics
+
+app = Flask(__name__)
+ob = OpenBiometrics(api_key="ob_live_...")
+
+@app.route("/verify-identity", methods=["POST"])
+def verify_identity():
+    id_photo = request.files["id_photo"].read()
+    selfie = request.files["selfie"].read()
+
+    result = ob.faces.verify(id_photo, selfie)
+
+    return jsonify({
+        "verified": result["is_match"],
+        "confidence": result["similarity"],
+    })
+```
+
+## With FastAPI
+
+```python
+from fastapi import FastAPI, UploadFile
+from openbiometrics_sdk import OpenBiometrics
+
+app = FastAPI()
+ob = OpenBiometrics(api_key="ob_live_...")
+
+@app.post("/verify-identity")
+async def verify_identity(id_photo: UploadFile, selfie: UploadFile):
+    result = ob.faces.verify(
+        await id_photo.read(),
+        await selfie.read(),
+    )
+    return {"verified": result["is_match"], "confidence": result["similarity"]}
+```

@@ -1,0 +1,44 @@
+# Dependencies
+node_modules/
+__pycache__/
+*.pyc
+.venv/
+*.egg-info/
+
+# Build outputs
+dist/
+build/
+*.onnx
+
+# Models (large binary files)
+engine/models/*.onnx
+models/
+
+# Data
+watchlists/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+
+# Env
+.env
+.env.*
+
+# Turbo
+.turbo/
+
+# Astro
+.astro/
+packages/www/src/content/docs/.astro/
+
+# Logs
+mprocs.log
+*.log
+
+# Sensitive / research files
+innovatrics_*.md
+innovatrics_*.json

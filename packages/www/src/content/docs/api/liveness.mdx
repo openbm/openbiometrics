@@ -1,0 +1,45 @@
+---
+title: Liveness Check
+description: Detect presentation attacks (spoofing) with passive liveness
+---
+
+# Liveness Detection
+
+Determine if a face image shows a real, live person or a presentation attack (printed photo, screen replay, mask).
+
+## How It Works
+
+OpenBiometrics uses **passive liveness** — no user interaction required. A single image is analyzed for artifacts that indicate spoofing:
+
+- Print attack detection (paper photos)
+- Screen replay detection (phones, tablets)
+- Texture analysis (mask detection)
+
+Liveness is included in every `/detect` call automatically.
+
+## Usage
+
+Liveness results are part of the face detection response:
+
+```json
+{
+  "faces": [{
+    "liveness": {
+      "is_live": true,
+      "score": 0.94
+    }
+  }]
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `is_live` | `bool` | `true` = real person, `false` = spoof |
+| `score` | `float` | Confidence score 0-1 |
+
+## Best Practices
+
+- Require `score > 0.8` for high-security applications
+- Combine with quality checks (`quality.is_acceptable`) for best results
+- Use images from a live camera feed, not pre-captured photos
+- Ensure adequate lighting for accurate detection

@@ -1,0 +1,40 @@
+---
+title: Edge / Jetson Deployment
+description: Deploy OpenBiometrics on NVIDIA Jetson and embedded devices
+---
+
+# Edge Deployment
+
+Run OpenBiometrics on NVIDIA Jetson (Nano, Orin) and other embedded devices.
+
+## Jetson (Docker)
+
+```bash
+docker build -f Dockerfile.jetson -t openbiometrics:jetson .
+docker run -p 8000:8000 --runtime nvidia openbiometrics:jetson
+```
+
+The Jetson image uses TensorRT for optimized inference, achieving 2-5x speedup over CPU.
+
+## Supported Platforms
+
+| Platform | Runtime | Notes |
+|----------|---------|-------|
+| Jetson Nano/Orin | TensorRT | Best performance on NVIDIA edge |
+| Raspberry Pi 5 | ONNX Runtime | CPU only, suitable for low-throughput |
+| Intel NUC | OpenVINO | Optimized for Intel CPUs |
+| Generic ARM | NCNN | Minimal footprint (~700KB) |
+
+## Model Optimization
+
+For edge deployment, consider:
+
+1. **Quantize to INT8** — 4x smaller models, minimal accuracy loss
+2. **Use smaller backbones** — MobileFaceNet instead of ResNet-50
+3. **Reduce detection resolution** — 320x320 instead of 640x640
+
+```python
+# Convert ONNX to TensorRT (on Jetson)
+import tensorrt as trt
+# See engine/scripts/convert_tensorrt.py
+```

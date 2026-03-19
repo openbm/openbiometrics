@@ -1,0 +1,72 @@
+---
+title: Watchlists (1:N)
+description: Enroll faces and search against watchlists for identification
+---
+
+# Watchlists
+
+Enroll known faces into watchlists, then identify unknown faces against them. Supports multiple named watchlists with FAISS-powered similarity search.
+
+## Enroll a Face
+
+```
+POST /api/v1/watchlist/enroll
+```
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `image` | file | Yes | Face image to enroll |
+| `label` | string | Yes | Name or identifier |
+| `watchlist_name` | string | No | Watchlist name (default: "default") |
+| `identity_id` | string | No | Custom ID (auto-generated if omitted) |
+
+```bash
+curl -X POST https://api.openbiometrics.dev/api/v1/watchlist/enroll \
+  -H "Authorization: Bearer ob_live_..." \
+  -F "image=@alice.jpg" \
+  -F "label=Alice Smith"
+```
+
+## Identify a Face
+
+```
+POST /api/v1/identify
+```
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `image` | file | Yes | Face image to search |
+| `watchlist_name` | string | No | Watchlist to search (default: "default") |
+| `top_k` | int | No | Max results (default: 5) |
+| `threshold` | float | No | Min similarity (default: 0.4) |
+
+```json
+{
+  "face": { ... },
+  "matches": [
+    { "identity_id": "abc-123", "label": "Alice Smith", "similarity": 0.89, "metadata": {} },
+    { "identity_id": "def-456", "label": "Bob Jones", "similarity": 0.42, "metadata": {} }
+  ]
+}
+```
+
+## Remove Identity
+
+```
+DELETE /api/v1/watchlist/{identity_id}
+```
+
+## List Watchlists
+
+```
+GET /api/v1/watchlist
+```
+
+```json
+{
+  "watchlists": [
+    { "name": "default", "size": 1523 },
+    { "name": "vip", "size": 42 }
+  ]
+}
+```

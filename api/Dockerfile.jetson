@@ -1,0 +1,14 @@
+# Jetson Nano / Orin deployment
+FROM nvcr.io/nvidia/l4t-ml:r36.4.0-py3
+
+WORKDIR /app
+
+COPY pyproject.toml .
+# Use pre-installed ONNX Runtime with TensorRT on Jetson
+RUN pip install --no-cache-dir fastapi uvicorn insightface faiss-cpu python-multipart pydantic
+
+COPY biometrics/ biometrics/
+COPY main.py download_models.py ./
+
+EXPOSE 8000
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]

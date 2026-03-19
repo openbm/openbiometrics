@@ -1,0 +1,103 @@
+---
+title: Node.js SDK
+description: Install and use the OpenBiometrics Node.js SDK
+---
+
+# Node.js SDK
+
+```bash
+npm install openbiometrics
+```
+
+## Initialize
+
+```ts
+import { OpenBiometrics } from 'openbiometrics';
+
+const ob = new OpenBiometrics({
+  apiKey: process.env.OB_API_KEY!,
+  // baseUrl: 'http://localhost:8000', // for self-hosted
+});
+```
+
+## Face Detection
+
+```ts
+import { readFileSync } from 'fs';
+
+const photo = readFileSync('photo.jpg');
+const { faces, count } = await ob.faces.detect(photo);
+
+for (const face of faces) {
+  console.log(`Age: ${face.demographics?.age}`);
+  console.log(`Gender: ${face.demographics?.gender}`);
+  console.log(`Quality: ${face.quality?.overall_score}/100`);
+  console.log(`Live: ${face.liveness?.is_live}`);
+}
+```
+
+## 1:1 Verification
+
+```ts
+const id = readFileSync('id_card.jpg');
+const selfie = readFileSync('selfie.jpg');
+
+const { is_match, similarity } = await ob.faces.verify(id, selfie);
+
+if (is_match) {
+  console.log(`Identity verified (${(similarity * 100).toFixed(1)}% match)`);
+}
+```
+
+## Watchlist Operations
+
+```ts
+// Enroll
+const result = await ob.watchlists.enroll(photo, { label: 'Alice' });
+console.log(`Enrolled: ${result.identity_id}`);
+
+// Identify
+const { matches } = await ob.watchlists.identify(unknownPhoto);
+const topMatch = matches[0];
+if (topMatch) {
+  console.log(`Best match: ${topMatch.label} (${(topMatch.similarity * 100).toFixed(1)}%)`);
+}
+
+// Remove
+await ob.watchlists.remove(result.identity_id);
+
+// List
+const { watchlists } = await ob.watchlists.list();
+```
+
+## Liveness
+
+```ts
+const { is_live, score } = await ob.liveness.check(selfieBuffer);
+if (!is_live) {
+  throw new Error('Spoofing detected');
+}
+```
+
+## With Express
+
+```ts
+import express from 'express';
+import multer from 'multer';
+import { OpenBiometrics } from 'openbiometrics';
+
+const app = express();
+const upload = multer();
+const ob = new OpenBiometrics({ apiKey: process.env.OB_API_KEY! });
+
+app.post('/verify-identity', upload.fields([
+  { name: 'id_photo' },
+  { name: 'selfie' },
+]), async (req, res) => {
+  const { is_match, similarity } = await ob.faces.verify(
+    req.files['id_photo'][0].buffer,
+    req.files['selfie'][0].buffer,
+  );
+  res.json({ verified: is_match, confidence: similarity });
+});
+```

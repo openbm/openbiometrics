@@ -1,0 +1,78 @@
+---
+title: Face Detection
+description: Detect faces with quality, demographics, and liveness in a single call
+---
+
+# Face Detection
+
+Detect all faces in an image. Returns bounding boxes, landmarks, quality scores, demographics, and liveness for each face.
+
+## Endpoint
+
+```
+POST /api/v1/detect
+```
+
+## Request
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `image` | file | Yes | Image file (JPEG, PNG) |
+
+```bash
+curl -X POST https://api.openbiometrics.dev/api/v1/detect \
+  -H "Authorization: Bearer ob_live_..." \
+  -F "image=@photo.jpg"
+```
+
+## Response
+
+```json
+{
+  "faces": [
+    {
+      "detection": {
+        "bbox": [120.5, 80.3, 280.7, 310.1],
+        "confidence": 0.997,
+        "face_size": 85.2,
+        "landmarks": [[145.2, 150.3], [220.1, 148.7], [185.5, 195.2], [152.3, 240.1], [215.8, 238.5]]
+      },
+      "quality": {
+        "overall_score": 82.5,
+        "face_size_px": 85.2,
+        "sharpness": 156.3,
+        "brightness": 132.0,
+        "contrast": 45.2,
+        "head_pose_ok": true,
+        "is_acceptable": true,
+        "reasons": []
+      },
+      "demographics": {
+        "age": 28,
+        "gender": "F"
+      },
+      "liveness": {
+        "is_live": true,
+        "score": 0.94
+      },
+      "has_embedding": true
+    }
+  ],
+  "count": 1
+}
+```
+
+## Face Object
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `detection.bbox` | `[x1,y1,x2,y2]` | Bounding box coordinates |
+| `detection.confidence` | `float` | Detection confidence 0-1 |
+| `detection.face_size` | `float` | Face size in pixels |
+| `detection.landmarks` | `[[x,y],...]` | 5-point facial landmarks |
+| `quality.overall_score` | `float` | Quality score 0-100 |
+| `quality.is_acceptable` | `bool` | Meets minimum quality threshold |
+| `demographics.age` | `int` | Estimated age |
+| `demographics.gender` | `"M"\|"F"` | Estimated gender |
+| `liveness.is_live` | `bool` | Real face vs presentation attack |
+| `liveness.score` | `float` | Liveness confidence 0-1 |
