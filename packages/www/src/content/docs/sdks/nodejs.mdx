@@ -101,3 +101,132 @@ app.post('/verify-identity', upload.fields([
   res.json({ verified: is_match, confidence: similarity });
 });
 ```
+
+## Document Processing
+
+Scan identity documents, extract text via OCR, and parse MRZ zones.
+
+```ts
+import { readFileSync } from 'fs';
+
+const idCard = readFileSync('id_card.jpg');
+
+// Full document scan (detect type + OCR + MRZ)
+const doc = await ob.documents.scan(idCard);
+console.log(`Type: ${doc.document_type}`);
+console.log(`Surname: ${doc.mrz?.parsed.surname}`);
+
+// OCR only
+const ocr = await ob.documents.ocr(idCard);
+console.log(ocr.text);
+
+// MRZ only
+const mrz = await ob.documents.mrz(idCard);
+console.log(mrz.parsed);
+
+// Verify a selfie against the document photo
+const selfie = readFileSync('selfie.jpg');
+const { is_match, similarity } = await ob.documents.verify(selfie, idCard);
+console.log(`Document match: ${is_match} (${(similarity * 100).toFixed(1)}%)`);
+```
+
+## Active Liveness
+
+Interactive challenge-response liveness sessions for verifying a real person is present.
+
+```ts
+// Create a session with specific challenges
+const session = await ob.liveness.createSession({
+  challenges: ['blink', 'turn_left'],
+  ttl_seconds: 120,
+});
+console.log(`Session: ${session.session_id}`);
+console.log(`First challenge: ${session.challenges[0]}`);
+
+// Submit frames as the user completes challenges
+const frame = readFileSync('frame_001.jpg');
+const updated = await ob.liveness.submitFrame(session.session_id, frame);
+console.log(`Status: ${updated.status}`);
+
+// Check session state
+const state = await ob.liveness.getSession(session.session_id);
+console.log(`Completed: ${state.status}`);
+
+// Cancel a session
+await ob.liveness.deleteSession(session.session_id);
+```
+
+## Video Management
+
+Manage RTSP camera sources for real-time face processing.
+
+```ts
+// Add a camera
+const camera = await ob.video.addCamera({
+  name: 'Lobby',
+  url: 'rtsp://192.168.1.100/stream',
+  fps: 5,
+});
+console.log(`Camera ID: ${camera.camera_id}`);
+
+// List all cameras
+const cameras = await ob.video.listCameras();
+for (const cam of cameras) {
+  console.log(`${cam.name}: ${cam.status}`);
+}
+
+// Get a snapshot
+const snapshot = await ob.video.getSnapshot(camera.camera_id);
+
+// Remove a camera
+await ob.video.removeCamera(camera.camera_id);
+```
+
+## Events & Webhooks
+
+Subscribe to events and register webhooks for real-time notifications.
+
+```ts
+// Register a webhook
+const webhook = await ob.events.registerWebhook({
+  url: 'https://example.com/hooks/ob',
+  events: ['face.identified', 'liveness.completed'],
+});
+console.log(`Webhook ID: ${webhook.webhook_id}`);
+console.log(`Secret: ${webhook.secret}`);
+
+// List webhooks
+const webhooks = await ob.events.listWebhooks();
+
+// Get recent events
+const events = await ob.events.getRecent({ type: 'face.identified', limit: 10 });
+for (const event of events) {
+  console.log(`${event.type} at ${event.timestamp}`);
+}
+
+// Delete a webhook
+await ob.events.deleteWebhook(webhook.webhook_id);
+```
+
+## Admin
+
+Health checks, model status, and runtime configuration.
+
+```ts
+// Health check
+const health = await ob.admin.health();
+console.log(`Status: ${health.status}, Uptime: ${health.uptime_seconds}s`);
+
+// List loaded models
+const models = await ob.admin.models();
+for (const model of models) {
+  console.log(`${model.name}: ${model.status}`);
+}
+
+// Get current config
+const config = await ob.admin.config();
+console.log(config);
+
+// Update config
+await ob.admin.config({ max_faces: 10, det_thresh: 0.6 });
+```

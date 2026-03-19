@@ -1,26 +1,18 @@
-"""FastAPI routes for the biometric platform.
+"""Face detection, verification, and identification endpoints.
 
-Endpoints:
-- POST /detect          - Detect faces in image
-- POST /verify          - 1:1 verification (two images)
-- POST /identify        - 1:N identification against watchlist
-- POST /watchlist       - Add face to watchlist
-- DELETE /watchlist/{id} - Remove from watchlist
-- GET /watchlist         - List watchlist entries
-- GET /health            - Service health check
+Backward-compatible with the original routes — same paths and contracts.
 """
 
 from __future__ import annotations
 
-import uuid
-
 import cv2
 import numpy as np
-from fastapi import APIRouter, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 
+from app.deps import get_kernel
 from app.schemas import (
-    DetectResponse,
     DemographicsInfo,
+    DetectResponse,
     FaceDetection,
     FaceResponse,
     HealthResponse,
@@ -28,17 +20,11 @@ from app.schemas import (
     LivenessInfo,
     QualityInfo,
     VerifyResponse,
-    WatchlistEntry,
     WatchlistSearchResult,
 )
-from openbiometrics.core.pipeline import FacePipeline, FaceResult
-from openbiometrics.watchlist.store import WatchlistManager
+from openbiometrics.kernel import BiometricKernel
 
-router = APIRouter()
-
-# These are set by main.py on startup
-pipeline: FacePipeline = None  # type: ignore
-watchlist_mgr: WatchlistManager = None  # type: ignore
+router = APIRouter(tags=["faces"])
 
 
 def _decode_image(file_bytes: bytes) -> np.ndarray:
@@ -50,7 +36,7 @@ def _decode_image(file_bytes: bytes) -> np.ndarray:
     return img
 
 
-def _face_to_response(result: FaceResult) -> FaceResponse:
+def _face_to_response(result) -> FaceResponse:
     """Convert FaceResult to API response."""
     face = result.face
     resp = FaceResponse(
@@ -81,10 +67,13 @@ def _face_to_response(result: FaceResult) -> FaceResponse:
 
 
 @router.post("/detect", response_model=DetectResponse)
-async def detect_faces(image: UploadFile = File(...)):
+async def detect_faces(
+    image: UploadFile = File(...),
+    kernel: BiometricKernel = Depends(get_kernel),
+):
     """Detect all faces in an image with quality, demographics, and liveness."""
     img = _decode_image(await image.read())
-    results = pipeline.process(img)
+    results = kernel.face.process(img)
     faces = [_face_to_response(r) for r in results]
     return DetectResponse(faces=faces, count=len(faces))
 
@@ -94,13 +83,14 @@ async def verify_faces(
     image1: UploadFile = File(...),
     image2: UploadFile = File(...),
     threshold: float = Form(0.4),
+    kernel: BiometricKernel = Depends(get_kernel),
 ):
-    """1:1 verification — compare two face images."""
+    """1:1 verification -- compare two face images."""
     img1 = _decode_image(await image1.read())
     img2 = _decode_image(await image2.read())
 
-    results1 = pipeline.process(img1)
-    results2 = pipeline.process(img2)
+    results1 = kernel.face.process(img1)
+    results2 = kernel.face.process(img2)
 
     if not results1:
         raise HTTPException(status_code=400, detail="No face detected in image1")
@@ -129,10 +119,11 @@ async def identify_face(
     watchlist_name: str = Form("default"),
     top_k: int = Form(5),
     threshold: float = Form(0.4),
+    kernel: BiometricKernel = Depends(get_kernel),
 ):
-    """1:N identification — search face against watchlist."""
+    """1:N identification -- search face against watchlist."""
     img = _decode_image(await image.read())
-    results = pipeline.process(img)
+    results = kernel.face.process(img)
 
     if not results:
         raise HTTPException(status_code=400, detail="No face detected")
@@ -141,6 +132,9 @@ async def identify_face(
     if r.embedding is None:
         raise HTTPException(status_code=500, detail="Recognition model not loaded")
 
+    from openbiometrics.watchlist.store import WatchlistManager
+
+    watchlist_mgr = WatchlistManager(storage_dir="./watchlists")
     wl = watchlist_mgr.get(watchlist_name)
     matches = wl.search(r.embedding, top_k=top_k, threshold=threshold)
 
@@ -158,64 +152,15 @@ async def identify_face(
     )
 
 
-@router.post("/watchlist/enroll")
-async def enroll_face(
-    image: UploadFile = File(...),
-    identity_id: str = Form(default=""),
-    label: str = Form(...),
-    watchlist_name: str = Form("default"),
-):
-    """Enroll a face into a watchlist."""
-    img = _decode_image(await image.read())
-    results = pipeline.process(img)
-
-    if not results:
-        raise HTTPException(status_code=400, detail="No face detected")
-
-    r = results[0]
-    if r.embedding is None:
-        raise HTTPException(status_code=500, detail="Recognition model not loaded")
-
-    if not identity_id:
-        identity_id = str(uuid.uuid4())
-
-    wl = watchlist_mgr.get(watchlist_name)
-    wl.add(identity_id, label, r.embedding)
-    wl.save(watchlist_mgr.storage_dir)
-
-    return {
-        "identity_id": identity_id,
-        "label": label,
-        "watchlist": watchlist_name,
-        "face": _face_to_response(r),
-    }
-
-
-@router.delete("/watchlist/{identity_id}")
-async def remove_from_watchlist(identity_id: str, watchlist_name: str = "default"):
-    """Remove an identity from a watchlist."""
-    wl = watchlist_mgr.get(watchlist_name)
-    if not wl.remove(identity_id):
-        raise HTTPException(status_code=404, detail="Identity not found")
-    wl.save(watchlist_mgr.storage_dir)
-    return {"removed": identity_id}
-
-
-@router.get("/watchlist")
-async def list_watchlists():
-    """List all watchlists and their sizes."""
-    names = watchlist_mgr.list_watchlists()
-    return {
-        "watchlists": [{"name": n, "size": watchlist_mgr.get(n).size} for n in names]
-    }
-
-
 @router.get("/health", response_model=HealthResponse)
-async def health_check():
+async def health_check(kernel: BiometricKernel = Depends(get_kernel)):
     """Service health check."""
+    from openbiometrics.watchlist.store import WatchlistManager
+
+    watchlist_mgr = WatchlistManager(storage_dir="./watchlists")
     wl_count = sum(watchlist_mgr.get(n).size for n in watchlist_mgr.list_watchlists())
     return HealthResponse(
         status="ok",
-        models_loaded=pipeline._detector is not None,
+        models_loaded=kernel.face._detector is not None,
         watchlist_count=wl_count,
     )

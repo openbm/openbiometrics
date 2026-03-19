@@ -1,0 +1,103 @@
+---
+title: Architecture Overview
+description: How OpenBiometrics is structured
+---
+
+# Architecture Overview
+
+OpenBiometrics is a three-layer system designed for modularity and deployment flexibility.
+
+## System Layers
+
+```
++-------------------------------------------------------+
+|                    Delivery Layer                      |
+|   Dashboard (Next.js)  |  Node.js SDK  |  Python SDK  |
++-------------------------------------------------------+
+|                     API Layer                          |
+|              FastAPI  /api/v1  endpoints               |
++-------------------------------------------------------+
+|                  Biometric Kernel                      |
+|   Face | Document | Liveness | Person | Video | Events |
++-------------------------------------------------------+
+|                  Runtime Layer                         |
+|   ONNX Runtime (CPU / CUDA / TensorRT / CoreML)       |
++-------------------------------------------------------+
+```
+
+**Biometric Kernel** -- The core engine. Pure Python, no web framework dependency. Handles all biometric processing: face detection, recognition, liveness, document scanning, person tracking, and more. Can be used directly as a library.
+
+**API Layer** -- A FastAPI server that wraps the kernel and exposes it over HTTP. Handles authentication, request parsing, file uploads, and response serialization. This is what the Docker image runs.
+
+**Delivery Layer** -- Everything that consumes the API: the web dashboard, the Node.js SDK (`openbiometrics` on npm), and the Python SDK (`openbiometrics` on PyPI).
+
+## Modules
+
+The kernel is organized into independent processing modules:
+
+| Module | Purpose | Install Extra |
+|--------|---------|---------------|
+| **Face** | Detection, recognition, quality, demographics, passive liveness | Base (always included) |
+| **Document** | ID card/passport detection, OCR, MRZ parsing, face extraction | `pip install openbiometrics-engine[document]` |
+| **Liveness** | Interactive multi-frame active liveness challenges | `pip install openbiometrics-engine[liveness]` |
+| **Person** | Full-body detection and multi-person tracking | `pip install openbiometrics-engine[person]` |
+| **Video** | Multi-camera RTSP stream management | Base |
+| **Events** | Pub/sub event bus and webhook dispatch | Base |
+| **Identity** | Cross-watchlist resolution and face clustering | Base |
+
+## Optional Dependencies
+
+The base install includes only face processing to keep the footprint small:
+
+```bash
+# Face only (default)
+pip install openbiometrics-engine
+
+# Add document processing
+pip install openbiometrics-engine[document]
+
+# Add person detection
+pip install openbiometrics-engine[person]
+
+# Add active liveness
+pip install openbiometrics-engine[liveness]
+
+# Everything
+pip install openbiometrics-engine[all]
+
+# GPU acceleration
+pip install openbiometrics-engine[gpu]
+```
+
+Modules with missing dependencies are silently skipped at startup. The kernel logs which modules loaded and which were unavailable. The face module is always required -- overall health is tied to it.
+
+## Runtime Abstraction
+
+All neural network inference runs through ONNX Runtime. This gives you backend flexibility without changing any code:
+
+- **CPU** -- Default. Works everywhere. Set `ctx_id=-1` or `DEVICE=cpu`.
+- **CUDA** -- Install `onnxruntime-gpu`. Set `ctx_id=0` (or the GPU index).
+- **TensorRT** -- ONNX Runtime's TensorRT execution provider for maximum throughput on NVIDIA GPUs.
+- **CoreML** -- Apple Silicon acceleration on macOS.
+
+The same kernel code and the same model files work across all backends.
+
+## Deployment Flexibility
+
+The kernel is a Python class with no assumptions about the runtime environment. The same `BiometricKernel` runs on:
+
+- **Cloud GPU servers** -- Docker with NVIDIA runtime, high throughput
+- **NVIDIA Jetson** -- ARM64 with CUDA, edge AI deployments
+- **ARM edge devices** -- CPU-only, lightweight installations
+- **macOS development** -- CoreML acceleration on Apple Silicon
+- **CI/CD pipelines** -- CPU-only for automated testing
+
+The Docker image packages the kernel + API layer together. For embedded or library use, import the kernel directly:
+
+```python
+from openbiometrics import BiometricKernel
+
+kernel = BiometricKernel()
+kernel.load()
+results = kernel.face.process(image)
+```

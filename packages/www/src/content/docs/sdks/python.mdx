@@ -70,7 +70,7 @@ from flask import Flask, request, jsonify
 from openbiometrics_sdk import OpenBiometrics
 
 app = Flask(__name__)
-ob = OpenBiometrics(api_key="ob_live_...")
+ob = OpenBiometrics(api_key="any-value", base_url="http://localhost:8000")
 
 @app.route("/verify-identity", methods=["POST"])
 def verify_identity():
@@ -92,7 +92,7 @@ from fastapi import FastAPI, UploadFile
 from openbiometrics_sdk import OpenBiometrics
 
 app = FastAPI()
-ob = OpenBiometrics(api_key="ob_live_...")
+ob = OpenBiometrics(api_key="any-value", base_url="http://localhost:8000")
 
 @app.post("/verify-identity")
 async def verify_identity(id_photo: UploadFile, selfie: UploadFile):
@@ -101,4 +101,124 @@ async def verify_identity(id_photo: UploadFile, selfie: UploadFile):
         await selfie.read(),
     )
     return {"verified": result["is_match"], "confidence": result["similarity"]}
+```
+
+## Document Processing
+
+Scan identity documents, extract text via OCR, and parse MRZ zones.
+
+```python
+# Full document scan (detect type + OCR + MRZ)
+doc = ob.documents.scan("id_card.jpg")
+print(f"Type: {doc['document_type']}")
+print(f"Surname: {doc['mrz']['parsed']['surname']}")
+
+# OCR only
+ocr = ob.documents.ocr("id_card.jpg")
+print(ocr["text"])
+
+# MRZ only
+mrz = ob.documents.mrz("id_card.jpg")
+print(mrz["parsed"])
+
+# Verify a selfie against the document photo
+result = ob.documents.verify("selfie.jpg", "id_card.jpg")
+print(f"Document match: {result['is_match']} ({result['similarity']:.1%})")
+```
+
+## Active Liveness
+
+Interactive challenge-response liveness sessions for verifying a real person is present.
+
+```python
+# Create a session with specific challenges
+session = ob.liveness.create_session(
+    challenges=["blink", "turn_left"],
+    ttl_seconds=120,
+)
+print(f"Session: {session['session_id']}")
+print(f"First challenge: {session['challenges'][0]}")
+
+# Submit frames as the user completes challenges
+updated = ob.liveness.submit_frame(session["session_id"], frame_bytes)
+print(f"Status: {updated['status']}")
+
+# Check session state
+state = ob.liveness.get_session(session["session_id"])
+print(f"Completed: {state['status']}")
+
+# Cancel a session
+ob.liveness.delete_session(session["session_id"])
+```
+
+## Video Management
+
+Manage RTSP camera sources for real-time face processing.
+
+```python
+# Add a camera
+camera = ob.video.add_camera(
+    name="Lobby",
+    url="rtsp://192.168.1.100/stream",
+    fps=5,
+)
+print(f"Camera ID: {camera['camera_id']}")
+
+# List all cameras
+cameras = ob.video.list_cameras()
+for cam in cameras:
+    print(f"{cam['name']}: {cam['status']}")
+
+# Get a snapshot (returns raw bytes)
+snapshot = ob.video.get_snapshot(camera["camera_id"])
+
+# Remove a camera
+ob.video.remove_camera(camera["camera_id"])
+```
+
+## Events & Webhooks
+
+Subscribe to events and register webhooks for real-time notifications.
+
+```python
+# Register a webhook
+webhook = ob.events.register_webhook(
+    url="https://example.com/hooks/ob",
+    events=["face.identified", "liveness.completed"],
+)
+print(f"Webhook ID: {webhook['webhook_id']}")
+print(f"Secret: {webhook['secret']}")
+
+# List webhooks
+webhooks = ob.events.list_webhooks()
+
+# Get recent events
+events = ob.events.get_recent(event_type="face.identified", limit=10)
+for event in events:
+    print(f"{event['type']} at {event['timestamp']}")
+
+# Delete a webhook
+ob.events.delete_webhook(webhook["webhook_id"])
+```
+
+## Admin
+
+Health checks, model status, and runtime configuration.
+
+```python
+# Health check
+health = ob.admin.health()
+print(f"Status: {health['status']}, Uptime: {health['uptime_seconds']}s")
+
+# List loaded models
+models = ob.admin.models()
+for model in models:
+    print(f"{model['name']}: {model['status']}")
+
+# Get current config
+config = ob.admin.config()
+print(config)
+
+# Update config
+ob.admin.config(max_faces=10, det_thresh=0.6)
 ```

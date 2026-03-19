@@ -1,0 +1,178 @@
+---
+title: Pipeline System
+description: How processing pipelines work
+---
+
+# Pipeline System
+
+Pipelines are the core processing units in OpenBiometrics. Each pipeline chains together multiple models into a single `process()` call that takes raw input and returns structured results.
+
+## Face Pipeline
+
+The `FacePipeline` is the primary pipeline. It runs every detected face through a sequence of stages:
+
+```
+Image → Detect → Quality → Align → Embed → Liveness → Demographics → Results
+```
+
+Each stage is optional and controlled by configuration:
+
+| Stage | Config Flag | Output |
+|-------|------------|--------|
+| **Detect** | Always on | Bounding boxes, landmarks, confidence |
+| **Quality** | `enable_quality` | Overall score, sharpness, brightness, head pose |
+| **Align** | Always on (post-detect) | 112x112 aligned face crop |
+| **Embed** | Requires `w600k_r50.onnx` model | 512-d embedding vector |
+| **Liveness** | `enable_liveness` | Live/spoof classification, confidence score |
+| **Demographics** | `enable_demographics` | Estimated age and gender |
+
+### Usage
+
+```python
+from openbiometrics.core.pipeline import FacePipeline, PipelineConfig
+import cv2
+
+config = PipelineConfig(
+    models_dir="./models",
+    ctx_id=0,                   # GPU device (-1 for CPU)
+    det_thresh=0.5,             # Detection confidence threshold
+    enable_liveness=True,
+    enable_demographics=True,
+    enable_quality=True,
+    quality_gate=False,         # If True, skip embedding when quality fails
+)
+
+pipeline = FacePipeline(config)
+pipeline.load()
+
+image = cv2.imread("photo.jpg")
+results = pipeline.process(image)
+
+for r in results:
+    print(f"Bbox: {r.face.bbox}")
+    print(f"Quality: {r.quality.overall_score}/100")
+    print(f"Embedding shape: {r.embedding.shape}")
+    print(f"Age: {r.age}, Gender: {r.gender}")
+    print(f"Live: {r.is_live} ({r.liveness_score:.2f})")
+```
+
+### FaceResult
+
+Each detected face produces a `FaceResult`:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `face` | `DetectedFace` | Raw detection (bbox, landmarks, aligned crop) |
+| `quality` | `QualityReport \| None` | Quality assessment |
+| `embedding` | `ndarray \| None` | 512-d face embedding |
+| `age` | `int \| None` | Estimated age |
+| `gender` | `str \| None` | `"M"` or `"F"` |
+| `is_live` | `bool \| None` | Real face vs spoof |
+| `liveness_score` | `float \| None` | Liveness confidence 0-1 |
+| `identity` | `str \| None` | Matched identity label (after watchlist search) |
+| `identity_score` | `float \| None` | Match similarity score |
+
+### 1:1 Verification
+
+The pipeline has a built-in `verify()` method:
+
+```python
+is_match, similarity = pipeline.verify(image1, image2)
+print(f"Match: {is_match}, Similarity: {similarity:.3f}")
+```
+
+This processes both images, extracts embeddings from the top face in each, and compares them.
+
+### Quality Gating
+
+When `quality_gate=True`, faces that fail quality assessment are returned early without an embedding. This is useful for enrollment flows where you only want high-quality face data:
+
+```python
+config = PipelineConfig(
+    enable_quality=True,
+    quality_gate=True,  # No embedding for low-quality faces
+)
+
+pipeline = FacePipeline(config)
+pipeline.load()
+
+results = pipeline.process(image)
+for r in results:
+    if r.embedding is None:
+        print(f"Rejected: {r.quality.reasons}")
+    else:
+        print(f"Accepted: quality={r.quality.overall_score}")
+```
+
+## Document Pipeline
+
+The document pipeline processes identity documents (passports, ID cards, driver licenses):
+
+```
+Image → Detect Document → Warp → OCR → MRZ Parse → Face Extraction
+```
+
+| Stage | Config Flag | Output |
+|-------|------------|--------|
+| **Detect** | Always on | Document bounding box and type |
+| **Warp** | Always on (post-detect) | Perspective-corrected document image |
+| **OCR** | `enable_ocr` | Extracted text fields |
+| **MRZ** | `enable_mrz` | Parsed MRZ data (name, DOB, nationality, etc.) |
+| **Face Extraction** | `enable_face_extraction` | Cropped photo from the document |
+
+### Usage
+
+```python
+from openbiometrics import BiometricKernel, BiometricConfig
+from openbiometrics.config import DocumentConfig
+
+config = BiometricConfig(
+    document=DocumentConfig(
+        enabled=True,
+        enable_ocr=True,
+        enable_mrz=True,
+        enable_face_extraction=True,
+    ),
+)
+
+kernel = BiometricKernel(config)
+kernel.load()
+
+if kernel.document is not None:
+    result = kernel.document.scan(document_image)
+    print(f"Document type: {result.document_type}")
+    print(f"MRZ surname: {result.mrz.parsed.surname}")
+    print(f"Face photo shape: {result.face_crop.shape}")
+```
+
+Requires the `document` extra: `pip install openbiometrics-engine[document]`.
+
+## Composability
+
+Pipelines are independent objects. You can run them standalone without the full kernel:
+
+```python
+# Face pipeline only, no kernel needed
+from openbiometrics.core.pipeline import FacePipeline, PipelineConfig
+
+pipeline = FacePipeline(PipelineConfig(models_dir="./models"))
+pipeline.load()
+results = pipeline.process(image)
+```
+
+Or combine pipeline results in your own application logic:
+
+```python
+kernel = BiometricKernel(config)
+kernel.load()
+
+# Detect face on document, then verify against selfie
+if kernel.document is not None:
+    doc_result = kernel.document.scan(id_card_image)
+    doc_face = doc_result.face_crop
+
+    is_match, score = kernel.face.verify(doc_face, selfie_image)
+    print(f"Document face matches selfie: {is_match} ({score:.2f})")
+```
+
+The kernel manages lifecycle and configuration, but the pipelines do the actual work and can be mixed freely.

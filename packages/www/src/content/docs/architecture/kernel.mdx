@@ -1,0 +1,207 @@
+---
+title: Biometric Kernel
+description: The central BiometricKernel class and configuration
+---
+
+# Biometric Kernel
+
+The `BiometricKernel` is the top-level entry point for the OpenBiometrics engine. It owns the lifecycle of all processing modules and provides a unified interface for initialization, health checks, and access to each subsystem.
+
+## Quick Start
+
+```python
+from openbiometrics import BiometricKernel, BiometricConfig, FaceConfig
+
+config = BiometricConfig(
+    face=FaceConfig(models_dir="./models", ctx_id=0),
+)
+
+kernel = BiometricKernel(config)
+kernel.load()
+
+# Process an image
+results = kernel.face.process(image)
+for r in results:
+    print(f"Age: {r.age}, Gender: {r.gender}, Live: {r.is_live}")
+```
+
+## Configuration
+
+`BiometricConfig` is the top-level dataclass. Each module has its own config section.
+
+```python
+from openbiometrics.config import (
+    BiometricConfig,
+    FaceConfig,
+    DocumentConfig,
+    LivenessConfig,
+    PersonConfig,
+    VideoConfig,
+    EventsConfig,
+    IdentityConfig,
+)
+
+config = BiometricConfig(
+    face=FaceConfig(...),
+    document=DocumentConfig(...),
+    liveness=LivenessConfig(...),
+    person=PersonConfig(...),
+    video=VideoConfig(...),
+    events=EventsConfig(...),
+    identity=IdentityConfig(...),
+)
+```
+
+### FaceConfig
+
+Core face processing. Always loaded.
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `models_dir` | `str` | `"./models"` | Path to model files |
+| `ctx_id` | `int` | `0` | GPU device index (`-1` for CPU) |
+| `det_thresh` | `float` | `0.5` | Detection confidence threshold |
+| `det_size` | `tuple[int, int]` | `(640, 640)` | Detection input resolution |
+| `max_faces` | `int` | `0` | Max faces to detect (`0` = unlimited) |
+| `enable_liveness` | `bool` | `True` | Enable passive liveness scoring |
+| `enable_demographics` | `bool` | `True` | Enable age/gender estimation |
+| `enable_quality` | `bool` | `True` | Enable face quality assessment |
+| `quality_gate` | `bool` | `False` | Skip recognition if quality check fails |
+
+### DocumentConfig
+
+Requires the `document` extra (`pip install openbiometrics-engine[document]`).
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `enabled` | `bool` | `True` | Enable document processing |
+| `models_dir` | `str` | `"./models"` | Path to document model files |
+| `ctx_id` | `int` | `0` | GPU device index |
+| `enable_ocr` | `bool` | `True` | Enable OCR text extraction |
+| `enable_mrz` | `bool` | `True` | Enable MRZ parsing |
+| `enable_face_extraction` | `bool` | `False` | Extract face photo from document |
+
+### LivenessConfig
+
+Requires the `liveness` extra (`pip install openbiometrics-engine[liveness]`). This configures the interactive active liveness system. For passive liveness (single-image), use `FaceConfig.enable_liveness`.
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `enabled` | `bool` | `True` | Enable active liveness sessions |
+| `models_dir` | `str` | `"./models"` | Path to liveness model files |
+| `ctx_id` | `int` | `0` | GPU device index |
+| `session_ttl` | `float` | `300.0` | Session time-to-live in seconds |
+| `num_challenges` | `int` | `3` | Number of challenges per session |
+| `timeout_seconds` | `float` | `5.0` | Per-challenge timeout |
+
+### PersonConfig
+
+Requires the `person` extra (`pip install openbiometrics-engine[person]`).
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `enabled` | `bool` | `True` | Enable person detection/tracking |
+| `models_dir` | `str` | `"./models"` | Path to model files |
+| `ctx_id` | `int` | `0` | GPU device index |
+| `model_path` | `str` | `"yolov8n.pt"` | YOLO model file |
+| `confidence_threshold` | `float` | `0.5` | Detection confidence threshold |
+| `max_disappeared` | `int` | `30` | Frames before a tracked person is dropped |
+| `iou_threshold` | `float` | `0.3` | IoU threshold for tracker matching |
+
+### VideoConfig
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `enabled` | `bool` | `True` | Enable video stream processing |
+| `max_fps` | `float` | `30.0` | Maximum processing FPS |
+| `track_faces` | `bool` | `True` | Enable face tracking across frames |
+| `buffer_size` | `int` | `30` | Frame buffer size |
+
+### EventsConfig
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `enabled` | `bool` | `True` | Enable event bus |
+| `max_workers` | `int` | `4` | Thread pool size for event dispatch |
+| `history_size` | `int` | `1000` | Number of recent events to retain |
+| `webhooks_enabled` | `bool` | `True` | Enable webhook dispatch |
+
+### IdentityConfig
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `enabled` | `bool` | `True` | Enable identity resolution |
+| `watchlist_dir` | `str` | `"./watchlists"` | Watchlist storage directory |
+| `cluster_threshold` | `float` | `0.6` | Cosine similarity threshold for clustering |
+
+## Lazy Module Loading
+
+The kernel uses guarded imports for optional modules. If a dependency is not installed, the corresponding module is silently set to `None`:
+
+```python
+kernel = BiometricKernel(BiometricConfig(
+    document=DocumentConfig(enabled=True),
+    person=PersonConfig(enabled=False),
+))
+kernel.load()
+
+# Document module loads if python-doctr is installed
+print(kernel.document)  # DocumentPipeline or None
+
+# Person module is disabled in config, not loaded
+print(kernel.person)  # None
+```
+
+This means you can always safely check:
+
+```python
+if kernel.document is not None:
+    result = kernel.document.scan(image)
+```
+
+## Accessing Modules
+
+After calling `kernel.load()`, access modules through properties:
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `kernel.face` | `FacePipeline` | Face detection, recognition, quality, demographics, liveness |
+| `kernel.document` | `DocumentPipeline \| None` | Document detection, OCR, MRZ |
+| `kernel.liveness` | `ActiveLivenessManager \| None` | Interactive liveness sessions |
+| `kernel.person_detector` | `PersonDetector \| None` | YOLO-based person detection |
+| `kernel.person_tracker` | `PersonTracker \| None` | IoU-based multi-person tracking |
+| `kernel.cameras` | `CameraManager \| None` | Multi-stream camera management |
+| `kernel.events` | `EventBus \| None` | Pub/sub event bus |
+| `kernel.webhooks` | `WebhookDispatcher \| None` | Webhook forwarding |
+| `kernel.identity_resolver` | `IdentityResolver \| None` | Cross-watchlist identity resolution |
+| `kernel.clusterer` | `FaceClusterer \| None` | Face embedding deduplication |
+
+## Health Checks
+
+The kernel provides a structured health check:
+
+```python
+status = kernel.health()
+
+print(status.healthy)       # True if face module is operational
+print(status.modules)       # {"face": True, "document": True, ...}
+print(status.details)       # {"face": "loaded: detector, recognizer, liveness", ...}
+```
+
+`healthy` is `True` when the face module is operational. Other modules may be disabled or missing dependencies without affecting overall health.
+
+## Lifecycle
+
+```python
+kernel = BiometricKernel(config)
+
+# Load all configured modules (safe to call multiple times)
+kernel.load()
+
+# ... process images ...
+
+# Shut down cleanly (stops cameras, event bus, webhooks)
+kernel.shutdown()
+```
+
+`load()` is idempotent -- calling it again after the first successful load is a no-op. `shutdown()` gracefully stops all running background services.

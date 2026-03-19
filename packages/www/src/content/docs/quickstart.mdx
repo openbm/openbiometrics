@@ -11,7 +11,17 @@ Get face recognition working in your app in under 5 minutes.
 
 <Steps>
 
-1. **Install the SDK**
+1. **Start the server**
+
+    ```bash
+    git clone https://github.com/drinkredwine/openbiometrics
+    cd openbiometrics/engine && pip install -e . && python download_models.py
+    cd ../api && uvicorn app.main:app --port 8000
+    ```
+
+    API docs at `http://localhost:8000/docs` (Swagger UI).
+
+2. **Install the SDK**
 
     <Tabs>
       <TabItem label="Node.js">
@@ -26,10 +36,6 @@ Get face recognition working in your app in under 5 minutes.
       </TabItem>
     </Tabs>
 
-2. **Get your API key**
-
-    Sign up at [openbiometrics.dev](https://openbiometrics.dev) and grab your API key from the dashboard. Or [self-host](/docs/self-hosting/docker) for free.
-
 3. **Detect your first face**
 
     <Tabs>
@@ -38,13 +44,15 @@ Get face recognition working in your app in under 5 minutes.
         import { OpenBiometrics } from 'openbiometrics';
         import { readFileSync } from 'fs';
 
-        const ob = new OpenBiometrics({ apiKey: process.env.OB_API_KEY! });
+        const ob = new OpenBiometrics({
+          apiKey: 'any-value',
+          baseUrl: 'http://localhost:8000',
+        });
 
         const photo = readFileSync('photo.jpg');
         const result = await ob.faces.detect(photo);
 
         for (const face of result.faces) {
-          console.log(`Confidence: ${(face.detection.confidence * 100).toFixed(1)}%`);
           console.log(`Age: ${face.demographics?.age}`);
           console.log(`Quality: ${face.quality?.overall_score.toFixed(0)}/100`);
         }
@@ -52,17 +60,23 @@ Get face recognition working in your app in under 5 minutes.
       </TabItem>
       <TabItem label="Python">
         ```python
-        import os
         from openbiometrics_sdk import OpenBiometrics
 
-        ob = OpenBiometrics(api_key=os.environ["OB_API_KEY"])
+        ob = OpenBiometrics(
+            api_key="any-value",
+            base_url="http://localhost:8000",
+        )
 
         result = ob.faces.detect("photo.jpg")
-
         for face in result["faces"]:
-            print(f"Confidence: {face['detection']['confidence']:.1%}")
             print(f"Age: {face['demographics']['age']}")
             print(f"Quality: {face['quality']['overall_score']:.0f}/100")
+        ```
+      </TabItem>
+      <TabItem label="cURL">
+        ```bash
+        curl -X POST http://localhost:8000/api/v1/detect \
+          -F "image=@photo.jpg" | python -m json.tool
         ```
       </TabItem>
     </Tabs>
@@ -76,18 +90,14 @@ Get face recognition working in your app in under 5 minutes.
         const selfie = readFileSync('selfie.jpg');
 
         const { is_match, similarity } = await ob.faces.verify(id_photo, selfie);
-
         console.log(is_match ? 'Identity confirmed' : 'Mismatch');
-        console.log(`Similarity: ${(similarity * 100).toFixed(1)}%`);
         ```
       </TabItem>
       <TabItem label="Python">
         ```python
         result = ob.faces.verify("id_card.jpg", "selfie.jpg")
-
         if result["is_match"]:
-            print("Identity confirmed")
-        print(f"Similarity: {result['similarity']:.1%}")
+            print(f"Identity confirmed ({result['similarity']:.1%})")
         ```
       </TabItem>
     </Tabs>
@@ -97,11 +107,9 @@ Get face recognition working in your app in under 5 minutes.
     <Tabs>
       <TabItem label="Node.js">
         ```ts
-        // Enroll known faces
         await ob.watchlists.enroll(photo1, { label: 'Alice' });
         await ob.watchlists.enroll(photo2, { label: 'Bob' });
 
-        // Identify unknown face
         const { matches } = await ob.watchlists.identify(unknownPhoto);
         for (const match of matches) {
           console.log(`${match.label}: ${(match.similarity * 100).toFixed(1)}%`);
@@ -110,11 +118,9 @@ Get face recognition working in your app in under 5 minutes.
       </TabItem>
       <TabItem label="Python">
         ```python
-        # Enroll known faces
         ob.watchlists.enroll("alice.jpg", label="Alice")
         ob.watchlists.enroll("bob.jpg", label="Bob")
 
-        # Identify unknown face
         result = ob.watchlists.identify("unknown.jpg")
         for match in result["matches"]:
             print(f"{match['label']}: {match['similarity']:.1%}")
@@ -124,21 +130,10 @@ Get face recognition working in your app in under 5 minutes.
 
 </Steps>
 
-## Self-Hosted Setup
+## What's Next
 
-Prefer to run it yourself? It's one command:
-
-```bash
-docker run -p 8000:8000 ghcr.io/openbiometrics/api:latest
-```
-
-Then point your SDK at localhost:
-
-```ts
-const ob = new OpenBiometrics({
-  apiKey: 'any-key-for-self-hosted',
-  baseUrl: 'http://localhost:8000',
-});
-```
-
-See the [Docker guide](/docs/self-hosting/docker) for GPU setup and production configuration.
+- **[Active Liveness](/api/active-liveness/)** — challenge-response anti-spoofing with presets
+- **[Document Processing](/api/documents/)** — MRZ parsing and document scanning
+- **[Video Analytics](/api/video-analytics/)** — real-time camera processing
+- **[Events & Webhooks](/api/events/)** — subscribe to biometric events
+- **[Docker deployment](/self-hosting/docker/)** — containerized setup

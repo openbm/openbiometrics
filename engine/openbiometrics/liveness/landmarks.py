@@ -19,6 +19,8 @@ logger = logging.getLogger(__name__)
 
 try:
     import mediapipe as mp
+    from mediapipe.tasks.python import vision as mp_vision
+    from mediapipe.tasks.python import BaseOptions as MpBaseOptions
 
     _MEDIAPIPE_AVAILABLE = True
 except ImportError:
@@ -197,6 +199,40 @@ def _estimate_head_pose(
     return float(yaw), float(pitch), float(roll)
 
 
+_FACE_LANDMARKER_URL = (
+    "https://storage.googleapis.com/mediapipe-models"
+    "/face_landmarker/face_landmarker/float16/latest/face_landmarker.task"
+)
+
+
+def _ensure_face_landmarker_model() -> str:
+    """Download the FaceLandmarker model if not already cached."""
+    import pathlib
+    import ssl
+    import urllib.request
+
+    cache_dir = pathlib.Path.home() / ".cache" / "mediapipe"
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    model_path = cache_dir / "face_landmarker.task"
+
+    if not model_path.exists():
+        logger.info("Downloading face_landmarker.task …")
+        try:
+            urllib.request.urlretrieve(_FACE_LANDMARKER_URL, model_path)
+        except urllib.error.URLError:
+            # Fallback: skip SSL verification (common on macOS with
+            # framework Python where certs aren't installed).
+            ctx = ssl.create_default_context()
+            ctx.check_hostname = False
+            ctx.verify_mode = ssl.CERT_NONE
+            req = urllib.request.Request(_FACE_LANDMARKER_URL)
+            with urllib.request.urlopen(req, context=ctx) as resp:
+                model_path.write_bytes(resp.read())
+        logger.info("Saved to %s", model_path)
+
+    return str(model_path)
+
+
 class FaceMeshDetector:
     """Detects 468 face landmarks using MediaPipe Face Mesh.
 
@@ -213,15 +249,13 @@ class FaceMeshDetector:
     def __init__(
         self,
         *,
-        static_image_mode: bool = False,
         max_num_faces: int = 1,
         min_detection_confidence: float = 0.5,
         min_tracking_confidence: float = 0.5,
+        **_kwargs: object,
     ):
         """
         Args:
-            static_image_mode: Treat every frame as independent (slower
-                but more robust for single images).
             max_num_faces: Maximum number of faces to detect.
             min_detection_confidence: Minimum confidence for face detection.
             min_tracking_confidence: Minimum confidence for landmark tracking.
@@ -235,14 +269,19 @@ class FaceMeshDetector:
                 "Install it with:  pip install mediapipe"
             )
 
-        self._face_mesh = mp.solutions.face_mesh.FaceMesh(
-            static_image_mode=static_image_mode,
-            max_num_faces=max_num_faces,
-            refine_landmarks=True,
-            min_detection_confidence=min_detection_confidence,
+        model_path = _ensure_face_landmarker_model()
+        options = mp_vision.FaceLandmarkerOptions(
+            base_options=MpBaseOptions(model_asset_path=model_path),
+            running_mode=mp_vision.RunningMode.IMAGE,
+            num_faces=max_num_faces,
+            min_face_detection_confidence=min_detection_confidence,
+            min_face_presence_confidence=min_tracking_confidence,
             min_tracking_confidence=min_tracking_confidence,
+            output_face_blendshapes=False,
+            output_facial_transformation_matrixes=False,
         )
-        logger.debug("FaceMeshDetector initialised (MediaPipe Face Mesh)")
+        self._landmarker = mp_vision.FaceLandmarker.create_from_options(options)
+        logger.debug("FaceMeshDetector initialised (MediaPipe FaceLandmarker tasks API)")
 
     def detect(self, image: np.ndarray) -> FaceMesh | None:
         """Detect face landmarks in a BGR image.
@@ -255,14 +294,15 @@ class FaceMeshDetector:
         """
         h, w = image.shape[:2]
         rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-        results = self._face_mesh.process(rgb)
+        mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb)
+        results = self._landmarker.detect(mp_image)
 
-        if not results.multi_face_landmarks:
+        if not results.face_landmarks:
             return None
 
-        face = results.multi_face_landmarks[0]
+        face = results.face_landmarks[0]
         landmarks = np.array(
-            [[lm.x, lm.y, lm.z] for lm in face.landmark],
+            [[lm.x, lm.y, lm.z] for lm in face],
             dtype=np.float64,
         )
 
@@ -283,7 +323,7 @@ class FaceMeshDetector:
 
     def close(self) -> None:
         """Release MediaPipe resources."""
-        self._face_mesh.close()
+        self._landmarker.close()
 
     def __enter__(self) -> FaceMeshDetector:
         return self

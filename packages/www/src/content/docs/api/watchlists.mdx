@@ -21,8 +21,7 @@ POST /api/v1/watchlist/enroll
 | `identity_id` | string | No | Custom ID (auto-generated if omitted) |
 
 ```bash
-curl -X POST https://api.openbiometrics.dev/api/v1/watchlist/enroll \
-  -H "Authorization: Bearer ob_live_..." \
+curl -X POST http://localhost:8000/api/v1/watchlist/enroll \
   -F "image=@alice.jpg" \
   -F "label=Alice Smith"
 ```

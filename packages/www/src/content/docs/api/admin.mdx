@@ -1,0 +1,159 @@
+---
+title: Admin
+description: System administration, health checks, and model management
+---
+
+# Admin
+
+Monitor system health, check model status, and view engine configuration.
+
+## Health Check
+
+Returns the health status of all modules.
+
+```
+GET /api/v1/admin/health
+```
+
+```bash
+curl http://localhost:8000/api/v1/admin/health \
+```
+
+```json
+{
+  "healthy": true,
+  "modules": {
+    "face": true,
+    "document": true,
+    "liveness": true,
+    "person": true,
+    "video": true,
+    "events": true,
+    "identity": true
+  },
+  "details": {
+    "face": "detector and recognizer loaded",
+    "document": "ocr and mrz engines ready",
+    "liveness": "active liveness manager running",
+    "person": "yolov8n model loaded",
+    "video": "camera manager active, 2 cameras",
+    "events": "event bus running, webhook dispatcher active",
+    "identity": "watchlist loaded, 1523 entries"
+  }
+}
+```
+
+## Health Response
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `healthy` | `bool` | `true` if all enabled modules are operational |
+| `modules` | `object` | Module name to health status mapping |
+| `details` | `object` | Module name to human-readable status string |
+
+## Model Status
+
+Check which ML models are loaded and ready.
+
+```
+GET /api/v1/admin/models
+```
+
+```bash
+curl http://localhost:8000/api/v1/admin/models \
+```
+
+```json
+[
+  { "name": "face_detector", "module": "face", "loaded": true },
+  { "name": "face_recognizer", "module": "face", "loaded": true },
+  { "name": "liveness", "module": "face", "loaded": true },
+  { "name": "demographics", "module": "face", "loaded": true },
+  { "name": "document_detector", "module": "document", "loaded": true },
+  { "name": "person_detector", "module": "person", "loaded": true },
+  { "name": "person_tracker", "module": "person", "loaded": true },
+  { "name": "active_liveness", "module": "liveness", "loaded": true },
+  { "name": "event_bus", "module": "events", "loaded": true },
+  { "name": "camera_manager", "module": "video", "loaded": true },
+  { "name": "identity_resolver", "module": "identity", "loaded": true },
+  { "name": "face_clusterer", "module": "identity", "loaded": true }
+]
+```
+
+## Model Status Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `name` | `string` | Model or component name |
+| `module` | `string` | Parent module (`face`, `document`, `person`, `liveness`, `events`, `video`, `identity`) |
+| `loaded` | `bool` | `true` if the model is loaded and ready for inference |
+
+## Current Configuration
+
+Returns the active engine configuration for all modules.
+
+```
+GET /api/v1/admin/config
+```
+
+```bash
+curl http://localhost:8000/api/v1/admin/config \
+```
+
+```json
+{
+  "face": {
+    "models_dir": "~/.openbiometrics/models",
+    "ctx_id": 0,
+    "det_thresh": 0.5,
+    "det_size": [640, 640],
+    "max_faces": 10,
+    "enable_liveness": true,
+    "enable_demographics": true,
+    "enable_quality": true,
+    "quality_gate": 30.0
+  },
+  "document": {
+    "enabled": true,
+    "models_dir": "~/.openbiometrics/models",
+    "enable_ocr": true,
+    "enable_mrz": true,
+    "enable_face_extraction": true
+  },
+  "liveness": {
+    "enabled": true,
+    "session_ttl": 300,
+    "num_challenges": 3,
+    "timeout_seconds": 5.0
+  },
+  "person": {
+    "enabled": true,
+    "model_path": "yolov8n.pt",
+    "confidence_threshold": 0.5
+  },
+  "video": {
+    "enabled": true,
+    "max_fps": 30.0,
+    "track_faces": true,
+    "buffer_size": 10
+  },
+  "events": {
+    "enabled": true,
+    "webhooks_enabled": true,
+    "max_workers": 4,
+    "history_size": 1000
+  },
+  "identity": {
+    "enabled": true,
+    "watchlist_dir": "~/.openbiometrics/watchlists",
+    "cluster_threshold": 0.6
+  }
+}
+```
+
+## Best Practices
+
+- Poll `/admin/health` from your load balancer or monitoring system
+- Check `/admin/models` after startup to confirm all expected models are loaded
+- Use `/admin/config` to verify runtime configuration matches your expectations
+- A module with `loaded: false` means the optional dependency is not installed or the model file is missing

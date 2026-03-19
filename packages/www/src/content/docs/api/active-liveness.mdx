@@ -1,0 +1,169 @@
+---
+title: Active Liveness
+description: Challenge-response liveness detection with multi-step verification
+---
+
+# Active Liveness
+
+Challenge-response liveness detection that requires the user to perform specific actions (turn head, blink, smile) to prove they are a real, live person. This is stronger than passive liveness and is recommended for high-security onboarding flows.
+
+## How It Works
+
+1. **Create a session** — the server returns a `session_id` and a list of challenges
+2. **Submit frames** — send camera frames as the user performs each challenge
+3. **Check results** — each frame submission returns whether the challenge passed
+4. **Session completes** — after all challenges pass, the session is marked as `completed` with a final `is_live` verdict
+
+## Challenge Types
+
+| Challenge | Instruction |
+|-----------|-------------|
+| `TURN_LEFT` | Turn your head to the left |
+| `TURN_RIGHT` | Turn your head to the right |
+| `LOOK_UP` | Look upward |
+| `LOOK_DOWN` | Look downward |
+| `BLINK` | Blink your eyes |
+| `SMILE` | Smile |
+| `OPEN_MOUTH` | Open your mouth |
+
+Challenges are randomly selected when a session is created. The number of challenges is configurable (default: 3).
+
+## Create a Session
+
+```
+POST /api/v1/liveness/sessions
+```
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `num_challenges` | int | No | Number of challenges (default: 3) |
+| `timeout_seconds` | float | No | Seconds per challenge (default: 5.0) |
+
+```bash
+curl -X POST "http://localhost:8000/api/v1/liveness/sessions?num_challenges=3&timeout_seconds=5.0" \
+```
+
+```json
+{
+  "session_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "state": "pending",
+  "challenges": [
+    { "type": "TURN_LEFT", "instruction": "Turn your head to the left", "timeout_seconds": 5.0 },
+    { "type": "BLINK", "instruction": "Blink your eyes", "timeout_seconds": 5.0 },
+    { "type": "SMILE", "instruction": "Smile", "timeout_seconds": 5.0 }
+  ]
+}
+```
+
+## Submit a Frame
+
+```
+POST /api/v1/liveness/sessions/{session_id}/frame
+```
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `image` | file | Yes | Camera frame (JPEG, PNG) |
+
+```bash
+curl -X POST http://localhost:8000/api/v1/liveness/sessions/a1b2c3d4-e5f6-7890-abcd-ef1234567890/frame \
+  -F "image=@frame.jpg"
+```
+
+```json
+{
+  "session_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "challenge_type": "TURN_LEFT",
+  "passed": true,
+  "confidence": 0.92,
+  "challenges_remaining": 2,
+  "session_complete": false,
+  "is_live": null,
+  "state": "in_progress"
+}
+```
+
+When the final challenge passes, `session_complete` becomes `true` and `is_live` contains the final verdict:
+
+```json
+{
+  "session_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "challenge_type": "SMILE",
+  "passed": true,
+  "confidence": 0.95,
+  "challenges_remaining": 0,
+  "session_complete": true,
+  "is_live": true,
+  "state": "completed"
+}
+```
+
+## Get Session Status
+
+```
+GET /api/v1/liveness/sessions/{session_id}
+```
+
+```bash
+curl http://localhost:8000/api/v1/liveness/sessions/a1b2c3d4-e5f6-7890-abcd-ef1234567890 \
+```
+
+```json
+{
+  "session_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "state": "completed",
+  "challenges": [
+    { "type": "TURN_LEFT", "instruction": "Turn your head to the left", "timeout_seconds": 5.0 },
+    { "type": "BLINK", "instruction": "Blink your eyes", "timeout_seconds": 5.0 },
+    { "type": "SMILE", "instruction": "Smile", "timeout_seconds": 5.0 }
+  ]
+}
+```
+
+## Cancel a Session
+
+```
+DELETE /api/v1/liveness/sessions/{session_id}
+```
+
+```bash
+curl -X DELETE http://localhost:8000/api/v1/liveness/sessions/a1b2c3d4-e5f6-7890-abcd-ef1234567890 \
+```
+
+```json
+{
+  "cancelled": "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+}
+```
+
+## Session States
+
+| State | Description |
+|-------|-------------|
+| `pending` | Session created, no frames submitted yet |
+| `in_progress` | At least one frame submitted, challenges remaining |
+| `completed` | All challenges passed, `is_live` verdict available |
+| `failed` | A challenge timed out or failed definitively |
+| `expired` | Session exceeded its TTL |
+
+## Challenge Result Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `session_id` | `string` | Session identifier |
+| `challenge_type` | `string\|null` | Current challenge type |
+| `passed` | `bool` | Whether the current challenge passed |
+| `confidence` | `float` | Confidence score 0-1 |
+| `challenges_remaining` | `int` | Number of challenges left |
+| `session_complete` | `bool` | `true` when all challenges are done |
+| `is_live` | `bool\|null` | Final liveness verdict (only set when complete) |
+| `state` | `string` | Current session state |
+
+## Best Practices
+
+- Submit frames at 5-10 FPS for smooth challenge detection
+- Show the challenge instruction to the user in your UI before capturing
+- Handle `expired` and `failed` states gracefully — create a new session to retry
+- Set `timeout_seconds` based on your UX; 5 seconds works well for most users
+- Use 3 challenges for standard security, 5 for high-security flows
+- Combine with face comparison to ensure the same person completes the session

@@ -1,0 +1,201 @@
+---
+title: Document Processing
+description: ID document scanning, OCR, and MRZ parsing
+---
+
+# Document Processing
+
+Scan identity documents to extract text (OCR), parse machine-readable zones (MRZ), and verify the document photo against a selfie. Supports passports, national ID cards, and travel documents.
+
+## Full Document Scan
+
+Runs the complete pipeline: document detection, OCR text extraction, and MRZ parsing in a single call.
+
+```
+POST /api/v1/documents/scan
+```
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `image` | file | Yes | Document image (JPEG, PNG) |
+
+```bash
+curl -X POST http://localhost:8000/api/v1/documents/scan \
+  -F "image=@passport.jpg"
+```
+
+```json
+{
+  "detected": true,
+  "ocr": {
+    "full_text": "SURNAME GIVEN NAMES\nP<UTOERIKSSON<<ANNA<MARIA\nL898902C36UTO7408122F1204159",
+    "lines": [
+      { "text": "SURNAME GIVEN NAMES", "bbox": [42.0, 18.5, 380.2, 45.1], "confidence": 0.96 },
+      { "text": "P<UTOERIKSSON<<ANNA<MARIA", "bbox": [40.1, 280.3, 520.7, 305.8], "confidence": 0.99 }
+    ],
+    "confidence": 0.94
+  },
+  "mrz": {
+    "mrz_type": "TD3",
+    "document_number": "L898902C3",
+    "surname": "ERIKSSON",
+    "given_names": "ANNA MARIA",
+    "nationality": "UTO",
+    "date_of_birth": "740812",
+    "sex": "F",
+    "expiry_date": "120415",
+    "issuing_country": "UTO",
+    "raw_mrz": [
+      "P<UTOERIKSSON<<ANNA<MARIA<<<<<<<<<<<<<<<<<",
+      "L898902C36UTO7408122F1204159ZE184226B<<<<<10"
+    ],
+    "check_digits_valid": true
+  },
+  "has_face": true
+}
+```
+
+## OCR Only
+
+Extract text from a document image without MRZ parsing.
+
+```
+POST /api/v1/documents/ocr
+```
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `image` | file | Yes | Document image (JPEG, PNG) |
+
+```bash
+curl -X POST http://localhost:8000/api/v1/documents/ocr \
+  -F "image=@id_card.jpg"
+```
+
+```json
+{
+  "full_text": "REPUBLIC OF UTOPIA\nNATIONAL IDENTITY CARD\nSurname: ERIKSSON\nGiven names: ANNA MARIA",
+  "lines": [
+    { "text": "REPUBLIC OF UTOPIA", "bbox": [50.0, 20.0, 350.0, 45.0], "confidence": 0.97 },
+    { "text": "NATIONAL IDENTITY CARD", "bbox": [48.0, 50.0, 380.0, 75.0], "confidence": 0.95 },
+    { "text": "Surname: ERIKSSON", "bbox": [50.0, 110.0, 300.0, 135.0], "confidence": 0.98 },
+    { "text": "Given names: ANNA MARIA", "bbox": [50.0, 140.0, 340.0, 165.0], "confidence": 0.96 }
+  ],
+  "confidence": 0.96
+}
+```
+
+## MRZ Parse Only
+
+Detect and parse the machine-readable zone from a document image.
+
+```
+POST /api/v1/documents/mrz
+```
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `image` | file | Yes | Document image (JPEG, PNG) |
+
+```bash
+curl -X POST http://localhost:8000/api/v1/documents/mrz \
+  -F "image=@passport.jpg"
+```
+
+```json
+{
+  "mrz_type": "TD3",
+  "document_number": "L898902C3",
+  "surname": "ERIKSSON",
+  "given_names": "ANNA MARIA",
+  "nationality": "UTO",
+  "date_of_birth": "740812",
+  "sex": "F",
+  "expiry_date": "120415",
+  "issuing_country": "UTO",
+  "raw_mrz": [
+    "P<UTOERIKSSON<<ANNA<MARIA<<<<<<<<<<<<<<<<<",
+    "L898902C36UTO7408122F1204159ZE184226B<<<<<10"
+  ],
+  "check_digits_valid": true
+}
+```
+
+Returns `422` if no MRZ is found in the image.
+
+## Document vs Selfie Verification
+
+Compare the face on a document to a selfie to verify the document holder's identity.
+
+```
+POST /api/v1/documents/verify
+```
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `document` | file | Yes | Document image containing a face photo |
+| `selfie` | file | Yes | Selfie image of the person |
+| `threshold` | float | No | Minimum similarity to consider a match (default: 0.4) |
+
+```bash
+curl -X POST http://localhost:8000/api/v1/documents/verify \
+  -F "document=@passport.jpg" \
+  -F "selfie=@selfie.jpg" \
+  -F "threshold=0.4"
+```
+
+```json
+{
+  "is_match": true,
+  "similarity": 0.87,
+  "face1": {
+    "detection": { "bbox": [120.5, 80.3, 280.7, 310.1], "confidence": 0.99, "face_size": 72.4, "landmarks": [] },
+    "quality": null,
+    "demographics": null,
+    "liveness": null,
+    "has_embedding": true
+  },
+  "face2": {
+    "detection": { "bbox": [95.2, 60.1, 320.8, 350.5], "confidence": 0.99, "face_size": 110.3, "landmarks": [] },
+    "quality": null,
+    "demographics": null,
+    "liveness": null,
+    "has_embedding": true
+  }
+}
+```
+
+## MRZ Types
+
+| Type | Lines | Characters/Line | Used For |
+|------|-------|-----------------|----------|
+| `TD1` | 3 | 30 | National ID cards, travel cards |
+| `TD2` | 2 | 36 | Older national ID cards, some visas |
+| `TD3` | 2 | 44 | Passports |
+
+## MRZ Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `mrz_type` | `string` | MRZ format: `TD1`, `TD2`, or `TD3` |
+| `document_number` | `string` | Document number |
+| `surname` | `string` | Holder's surname |
+| `given_names` | `string` | Holder's given names |
+| `nationality` | `string` | 3-letter nationality code (ISO 3166-1) |
+| `date_of_birth` | `string` | Date of birth (YYMMDD) |
+| `sex` | `string` | `M`, `F`, or `<` (unspecified) |
+| `expiry_date` | `string` | Document expiry date (YYMMDD) |
+| `issuing_country` | `string` | 3-letter issuing country code |
+| `raw_mrz` | `string[]` | Raw MRZ lines as read from the document |
+| `check_digits_valid` | `bool` | Whether all MRZ check digits are valid |
+
+## OCR Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `full_text` | `string` | All extracted text concatenated |
+| `lines` | `TextLine[]` | Individual text lines with positions |
+| `lines[].text` | `string` | Text content of the line |
+| `lines[].bbox` | `[x1,y1,x2,y2]` | Bounding box coordinates |
+| `lines[].confidence` | `float` | OCR confidence 0-1 |
+| `confidence` | `float` | Overall OCR confidence 0-1 |

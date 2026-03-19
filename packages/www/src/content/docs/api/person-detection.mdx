@@ -1,0 +1,90 @@
+---
+title: Person Detection
+description: YOLO-powered person detection and tracking
+---
+
+# Person Detection
+
+Detect and track people in images and video streams using a YOLO-based model. Person detection powers the people counting, line crossing, and zone monitoring features in the video analytics pipeline.
+
+## Overview
+
+The person detection module provides:
+
+- **Detection** — locate all people in an image with bounding boxes and confidence scores
+- **Tracking** — assign persistent IDs to people across video frames (ByteTrack)
+- **Counting** — track how many people enter and exit defined zones or cross lines
+
+Person detection runs as part of the video analytics pipeline. When a camera is added, detected persons are automatically tracked and events are emitted.
+
+## Requirements
+
+Person detection requires the `person` optional dependency:
+
+```bash
+pip install openbiometrics[person]
+```
+
+Enable it in your configuration:
+
+```json
+{
+  "person": {
+    "enabled": true,
+    "model_path": "yolov8n.pt",
+    "confidence_threshold": 0.5
+  }
+}
+```
+
+## Detection Output
+
+Each detected person produces a result with the following fields:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `bbox` | `[x1,y1,x2,y2]` | Bounding box coordinates |
+| `confidence` | `float` | Detection confidence 0-1 |
+| `track_id` | `int\|null` | Persistent tracking ID (when tracking is active) |
+| `class_id` | `int` | YOLO class ID (0 = person) |
+
+## Tracking
+
+When processing video, the tracker assigns a unique `track_id` to each person that persists across frames. This enables:
+
+- Counting unique people rather than raw detections
+- Tracking movement paths
+- Detecting when a person crosses a defined line or enters/exits a zone
+
+The tracker uses ByteTrack, which handles occlusion and re-identification well in crowded scenes.
+
+## Events
+
+Person detection emits the following events through the event system:
+
+| Event Type | Trigger |
+|------------|---------|
+| `person_entered` | A tracked person enters a monitored zone |
+| `person_exited` | A tracked person exits a monitored zone |
+| `line_crossed` | A tracked person crosses a counting line |
+
+See [Events & Webhooks](/api/events) for details on subscribing to these events.
+
+## Camera-Based Usage
+
+For real-time person detection on camera streams, use the [Video Analytics](/api/video-analytics) endpoints to add cameras. Person detection runs automatically on each frame when the module is enabled.
+
+## Configuration
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `enabled` | bool | `false` | Enable person detection module |
+| `model_path` | string | `"yolov8n.pt"` | Path to YOLO model weights |
+| `confidence_threshold` | float | `0.5` | Minimum detection confidence |
+
+## Best Practices
+
+- Use `yolov8n.pt` (nano) for speed, `yolov8m.pt` (medium) for accuracy
+- Set `confidence_threshold` to 0.5 for general use; lower to 0.3 for crowded scenes
+- Ensure camera resolution is at least 640x480 for reliable detection at distance
+- Person detection works best when people are upright and at least 50px tall in the frame

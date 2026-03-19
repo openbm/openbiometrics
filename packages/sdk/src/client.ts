@@ -1,6 +1,10 @@
 import { Faces } from './resources/faces';
 import { Watchlists } from './resources/watchlists';
 import { Liveness } from './resources/liveness';
+import { Documents } from './resources/documents';
+import { Video } from './resources/video';
+import { Events } from './resources/events';
+import { Admin } from './resources/admin';
 import type { OpenBiometricsConfig } from './types';
 
 /**
@@ -29,6 +33,10 @@ export class OpenBiometrics {
   readonly faces: Faces;
   readonly watchlists: Watchlists;
   readonly liveness: Liveness;
+  readonly documents: Documents;
+  readonly video: Video;
+  readonly events: Events;
+  readonly admin: Admin;
 
   private readonly apiKey: string;
   private readonly baseUrl: string;
@@ -40,6 +48,10 @@ export class OpenBiometrics {
     this.faces = new Faces(this);
     this.watchlists = new Watchlists(this);
     this.liveness = new Liveness(this);
+    this.documents = new Documents(this);
+    this.video = new Video(this);
+    this.events = new Events(this);
+    this.admin = new Admin(this);
   }
 
   /** @internal */

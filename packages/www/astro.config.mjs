@@ -25,8 +25,14 @@ export default defineConfig({
           items: [
             { label: 'Face Detection', slug: 'api/face-detection' },
             { label: 'Face Verification', slug: 'api/face-verification' },
-            { label: 'Liveness Check', slug: 'api/liveness' },
+            { label: 'Passive Liveness', slug: 'api/passive-liveness' },
+            { label: 'Active Liveness', slug: 'api/active-liveness' },
+            { label: 'Document Processing', slug: 'api/documents' },
             { label: 'Watchlists', slug: 'api/watchlists' },
+            { label: 'Person Detection', slug: 'api/person-detection' },
+            { label: 'Video Analytics', slug: 'api/video-analytics' },
+            { label: 'Events & Webhooks', slug: 'api/events' },
+            { label: 'Admin', slug: 'api/admin' },
           ],
         },
         {
@@ -34,6 +40,14 @@ export default defineConfig({
           items: [
             { label: 'Node.js', slug: 'sdks/nodejs' },
             { label: 'Python', slug: 'sdks/python' },
+          ],
+        },
+        {
+          label: 'Architecture',
+          items: [
+            { label: 'Overview', slug: 'architecture/overview' },
+            { label: 'Biometric Kernel', slug: 'architecture/kernel' },
+            { label: 'Pipeline System', slug: 'architecture/pipelines' },
           ],
         },
         {

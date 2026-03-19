@@ -22,8 +22,7 @@ POST /api/v1/verify
 | `threshold` | float | No | Match threshold (default: 0.4) |
 
 ```bash
-curl -X POST https://api.openbiometrics.dev/api/v1/verify \
-  -H "Authorization: Bearer ob_live_..." \
+curl -X POST http://localhost:8000/api/v1/verify \
   -F "image1=@id_card.jpg" \
   -F "image2=@selfie.jpg" \
   -F "threshold=0.4"

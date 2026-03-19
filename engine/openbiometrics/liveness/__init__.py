@@ -18,6 +18,12 @@ from openbiometrics.liveness.challenges import (
 )
 from openbiometrics.liveness.detector import ActionDetector
 from openbiometrics.liveness.landmarks import FaceMesh, FaceMeshDetector
+from openbiometrics.liveness.presets import (
+    LivenessPreset,
+    PresetName,
+    get_preset,
+    list_presets,
+)
 from openbiometrics.liveness.session import (
     ActiveLivenessManager,
     ActiveLivenessSession,
@@ -34,5 +40,9 @@ __all__ = [
     "ChallengeType",
     "FaceMesh",
     "FaceMeshDetector",
+    "LivenessPreset",
+    "PresetName",
     "SessionState",
+    "get_preset",
+    "list_presets",
 ]

@@ -1,0 +1,213 @@
+---
+title: Events & Webhooks
+description: Real-time event system and webhook notifications
+---
+
+# Events & Webhooks
+
+Subscribe to real-time events from the OpenBiometrics engine. Register webhook URLs to receive HTTP POST notifications when faces are detected, watchlist matches occur, people cross lines, and more.
+
+## Event Types
+
+| Event Type | Description |
+|------------|-------------|
+| `face_detected` | A face was detected in an image or video frame |
+| `face_matched` | A detected face matched an enrolled identity |
+| `watchlist_alert` | A watchlist match exceeded the alert threshold |
+| `liveness_passed` | An active liveness session completed successfully |
+| `liveness_failed` | An active liveness session failed |
+| `document_scanned` | A document was scanned and processed |
+| `person_entered` | A tracked person entered a monitored zone |
+| `person_exited` | A tracked person exited a monitored zone |
+| `line_crossed` | A tracked person crossed a counting line |
+| `system_error` | An internal error occurred in a processing module |
+
+## Register a Webhook
+
+```
+POST /api/v1/events/webhooks
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `url` | string | Yes | HTTPS endpoint to receive events |
+| `event_types` | string[] | Yes | Event types to subscribe to |
+| `secret` | string | No | Shared secret for HMAC-SHA256 signature |
+
+```bash
+curl -X POST http://localhost:8000/api/v1/events/webhooks \
+
+  -d '{
+    "url": "https://example.com/webhooks/biometrics",
+    "event_types": ["face_matched", "watchlist_alert", "liveness_passed"],
+    "secret": "whsec_your_signing_secret"
+  }'
+```
+
+```json
+{
+  "id": "wh_a1b2c3d4e5f6",
+  "url": "https://example.com/webhooks/biometrics",
+  "event_types": ["face_matched", "watchlist_alert", "liveness_passed"],
+  "created_at": "2026-03-19T10:30:00+00:00"
+}
+```
+
+## Remove a Webhook
+
+```
+DELETE /api/v1/events/webhooks/{webhook_id}
+```
+
+```bash
+curl -X DELETE http://localhost:8000/api/v1/events/webhooks/wh_a1b2c3d4e5f6 \
+```
+
+```json
+{
+  "removed": "wh_a1b2c3d4e5f6"
+}
+```
+
+## List Webhooks
+
+```
+GET /api/v1/events/webhooks
+```
+
+```bash
+curl http://localhost:8000/api/v1/events/webhooks \
+```
+
+```json
+[
+  {
+    "id": "wh_a1b2c3d4e5f6",
+    "url": "https://example.com/webhooks/biometrics",
+    "event_types": ["face_matched", "watchlist_alert", "liveness_passed"],
+    "created_at": "2026-03-19T10:30:00+00:00"
+  }
+]
+```
+
+## Recent Events
+
+Retrieve recent events from the in-memory event history.
+
+```
+GET /api/v1/events/recent
+```
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `limit` | int | No | Max events to return (default: 100) |
+| `event_type` | string | No | Filter by event type |
+
+```bash
+curl "http://localhost:8000/api/v1/events/recent?limit=10&event_type=face_matched" \
+```
+
+```json
+[
+  {
+    "id": "evt_9f8e7d6c-5b4a-3210-fedc-ba9876543210",
+    "type": "face_matched",
+    "timestamp": "2026-03-19T10:32:15+00:00",
+    "source": "face_pipeline",
+    "data": {
+      "identity_id": "abc-123",
+      "label": "Alice Smith",
+      "similarity": 0.91,
+      "watchlist": "default"
+    },
+    "camera_id": "lobby-cam-1"
+  }
+]
+```
+
+## Event Object
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | `string` | Unique event identifier (UUID) |
+| `type` | `string` | Event type (see table above) |
+| `timestamp` | `string` | ISO 8601 UTC timestamp |
+| `source` | `string` | Module that produced the event |
+| `data` | `object` | Event-specific payload |
+| `camera_id` | `string\|null` | Camera ID if event originated from a stream |
+
+## Webhook Signing
+
+When you provide a `secret` during registration, every webhook delivery includes an HMAC-SHA256 signature in the `X-Signature-256` header. Use this to verify that events came from OpenBiometrics.
+
+The signature is computed over the raw JSON request body:
+
+```
+HMAC-SHA256(secret, request_body)
+```
+
+**Verifying in Python:**
+
+```python
+import hashlib
+import hmac
+
+def verify_webhook(payload: bytes, signature: str, secret: str) -> bool:
+    expected = hmac.new(
+        secret.encode(),
+        payload,
+        hashlib.sha256,
+    ).hexdigest()
+    return hmac.compare_digest(f"sha256={expected}", signature)
+```
+
+**Verifying in Node.js:**
+
+```javascript
+const crypto = require("crypto");
+
+function verifyWebhook(payload, signature, secret) {
+  const expected = crypto
+    .createHmac("sha256", secret)
+    .update(payload)
+    .digest("hex");
+  return signature === `sha256=${expected}`;
+}
+```
+
+## Webhook Delivery Format
+
+Each webhook POST contains the event as a JSON body:
+
+```json
+{
+  "id": "evt_9f8e7d6c-5b4a-3210-fedc-ba9876543210",
+  "type": "watchlist_alert",
+  "timestamp": "2026-03-19T10:32:15+00:00",
+  "source": "face_pipeline",
+  "data": {
+    "identity_id": "abc-123",
+    "label": "Alice Smith",
+    "similarity": 0.93,
+    "watchlist": "vip"
+  },
+  "camera_id": "lobby-cam-1"
+}
+```
+
+**Headers:**
+
+| Header | Description |
+|--------|-------------|
+| `Content-Type` | `application/json` |
+| `X-Signature-256` | HMAC-SHA256 signature (if secret is set) |
+| `X-Event-Type` | Event type string |
+| `X-Event-ID` | Unique event ID |
+
+## Best Practices
+
+- Always set a `secret` for production webhooks and verify signatures
+- Subscribe only to the event types you need to minimize traffic
+- Return `200` quickly from your webhook endpoint; process events asynchronously
+- Use the `event_type` filter on `/recent` to debug specific event flows
+- Monitor `system_error` events for early detection of issues

@@ -14,6 +14,10 @@ dependencies = [
 
 [project.optional-dependencies]
 gpu = ["onnxruntime-gpu>=1.18"]
+document = ["python-doctr[torch]>=0.9"]
+person = ["ultralytics>=8.2"]
+liveness = ["mediapipe>=0.10"]
+all = ["openbiometrics-engine[document,person,liveness]"]
 dev = ["pytest>=8.0", "ruff>=0.5"]
 
 [build-system]

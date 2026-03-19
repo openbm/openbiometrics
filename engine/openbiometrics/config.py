@@ -31,36 +31,54 @@ class FaceConfig:
 
 @dataclass
 class DocumentConfig:
-    """Configuration for document processing (Phase 2)."""
+    """Configuration for document processing.
 
+    Controls document detection, OCR, MRZ parsing, and face extraction
+    from identity documents.
+    """
+
+    enabled: bool = True
     models_dir: str = "./models"
     ctx_id: int = 0
+    enable_ocr: bool = True
+    enable_mrz: bool = True
+    enable_face_extraction: bool = False
 
 
 @dataclass
 class LivenessConfig:
-    """Configuration for standalone liveness detection (Phase 2).
+    """Configuration for standalone active liveness detection.
 
-    For liveness within the face pipeline, use FaceConfig.enable_liveness.
-    This is for advanced multi-frame / active liveness scenarios.
+    For passive liveness within the face pipeline, use FaceConfig.enable_liveness.
+    This is for the interactive multi-frame / active liveness challenge system.
     """
 
+    enabled: bool = True
     models_dir: str = "./models"
     ctx_id: int = 0
+    session_ttl: float = 300.0  # Session time-to-live in seconds
+    num_challenges: int = 3
+    timeout_seconds: float = 5.0  # Per-challenge timeout
 
 
 @dataclass
 class PersonConfig:
-    """Configuration for person detection / re-identification (Phase 2)."""
+    """Configuration for person detection and tracking."""
 
+    enabled: bool = True
     models_dir: str = "./models"
     ctx_id: int = 0
+    model_path: str = "yolov8n.pt"
+    confidence_threshold: float = 0.5
+    max_disappeared: int = 30  # Frames before a tracked person is dropped
+    iou_threshold: float = 0.3
 
 
 @dataclass
 class VideoConfig:
-    """Configuration for video stream processing (Phase 2)."""
+    """Configuration for video stream processing and camera management."""
 
+    enabled: bool = True
     max_fps: float = 30.0
     track_faces: bool = True
     buffer_size: int = 30
@@ -68,9 +86,21 @@ class VideoConfig:
 
 @dataclass
 class EventsConfig:
-    """Configuration for event emission / callbacks (Phase 2)."""
+    """Configuration for event emission and webhook dispatch."""
 
-    enabled: bool = False
+    enabled: bool = True
+    max_workers: int = 4  # Thread pool size for event dispatch
+    history_size: int = 1000  # Number of recent events to retain
+    webhooks_enabled: bool = True
+
+
+@dataclass
+class IdentityConfig:
+    """Configuration for identity resolution and face clustering."""
+
+    enabled: bool = True
+    watchlist_dir: str = "./watchlists"
+    cluster_threshold: float = 0.6  # Default cosine similarity threshold
 
 
 @dataclass
@@ -92,3 +122,4 @@ class BiometricConfig:
     person: PersonConfig = field(default_factory=PersonConfig)
     video: VideoConfig = field(default_factory=VideoConfig)
     events: EventsConfig = field(default_factory=EventsConfig)
+    identity: IdentityConfig = field(default_factory=IdentityConfig)

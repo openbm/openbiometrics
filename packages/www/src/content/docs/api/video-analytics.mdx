@@ -1,0 +1,147 @@
+---
+title: Video Analytics
+description: Multi-camera management, person tracking, and people counting
+---
+
+# Video Analytics
+
+Manage camera streams and run real-time analytics including face detection, person tracking, and people counting. Supports RTSP cameras, USB devices, and video files.
+
+## Add a Camera
+
+```
+POST /api/v1/video/cameras
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `camera_id` | string | Yes | Unique identifier for this camera |
+| `source` | string | Yes | RTSP URL, file path, or device index |
+
+**Source examples:**
+- RTSP: `"rtsp://admin:pass@192.168.1.100:554/stream"`
+- USB device: `"0"` (first webcam), `"1"` (second webcam)
+- Video file: `"/path/to/video.mp4"`
+
+```bash
+curl -X POST http://localhost:8000/api/v1/video/cameras \
+
+  -d '{
+    "camera_id": "lobby-cam-1",
+    "source": "rtsp://admin:pass@192.168.1.100:554/stream"
+  }'
+```
+
+```json
+{
+  "camera_id": "lobby-cam-1",
+  "source": "rtsp://admin:pass@192.168.1.100:554/stream",
+  "is_running": true,
+  "fps": 25.0,
+  "frame_count": 0
+}
+```
+
+Returns `409` if a camera with the same `camera_id` already exists.
+
+## Remove a Camera
+
+```
+DELETE /api/v1/video/cameras/{camera_id}
+```
+
+```bash
+curl -X DELETE http://localhost:8000/api/v1/video/cameras/lobby-cam-1 \
+```
+
+```json
+{
+  "removed": "lobby-cam-1"
+}
+```
+
+## List Cameras
+
+```
+GET /api/v1/video/cameras
+```
+
+```bash
+curl http://localhost:8000/api/v1/video/cameras \
+```
+
+```json
+[
+  {
+    "camera_id": "lobby-cam-1",
+    "source": "rtsp://admin:pass@192.168.1.100:554/stream",
+    "is_running": true,
+    "fps": 24.8,
+    "frame_count": 18420
+  },
+  {
+    "camera_id": "entrance-cam",
+    "source": "rtsp://admin:pass@192.168.1.101:554/stream",
+    "is_running": true,
+    "fps": 15.0,
+    "frame_count": 9210
+  }
+]
+```
+
+## Get Snapshot
+
+Get the latest frame from a camera as a JPEG image.
+
+```
+GET /api/v1/video/cameras/{camera_id}/snapshot
+```
+
+```bash
+curl http://localhost:8000/api/v1/video/cameras/lobby-cam-1/snapshot \
+  --output snapshot.jpg
+```
+
+Returns `image/jpeg` content. Returns `404` if the camera is not found or no frame is available.
+
+## Camera Status Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `camera_id` | `string` | Unique camera identifier |
+| `source` | `string` | Camera source (URL, path, or device index) |
+| `is_running` | `bool` | Whether the stream is actively capturing |
+| `fps` | `float` | Current frames per second |
+| `frame_count` | `int` | Total frames captured since camera was added |
+
+## Line Crossing and Zone Counting
+
+When person detection is enabled, you can define counting lines and zones. As tracked people cross a line or enter/exit a zone, events are emitted:
+
+- **Line crossing** — define a virtual line in the frame; count people crossing in each direction
+- **Zone counting** — define a polygon region; track entries and exits
+
+These events are delivered through the event system. See [Events & Webhooks](/api/events) for details.
+
+| Event | Description |
+|-------|-------------|
+| `person_entered` | A person entered a defined zone |
+| `person_exited` | A person exited a defined zone |
+| `line_crossed` | A person crossed a counting line |
+
+## Configuration
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `enabled` | bool | `false` | Enable video module |
+| `max_fps` | float | `30.0` | Maximum processing FPS |
+| `track_faces` | bool | `true` | Run face detection on camera frames |
+| `buffer_size` | int | `10` | Frame buffer size per camera |
+
+## Best Practices
+
+- Use descriptive `camera_id` values (e.g., `"lobby-entrance"`, `"parking-lot-a"`)
+- RTSP streams over TCP are more reliable than UDP in congested networks
+- Set `max_fps` to match your processing budget; 10-15 FPS is sufficient for most counting use cases
+- Monitor `is_running` status and re-add cameras that disconnect
+- Use snapshots for debugging camera alignment and coverage

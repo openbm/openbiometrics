@@ -56,6 +56,61 @@ docker run -p 8000:8000 \
   ghcr.io/openbiometrics/api:latest
 ```
 
+## Optional Modules
+
+The base image includes face detection, verification, and liveness. To enable additional capabilities, install optional modules at build time or in a custom Dockerfile.
+
+| Module | Extra | What it adds |
+|--------|-------|--------------|
+| Face (default) | — | Detection, verification, quality, demographics, liveness |
+| Documents | `documents` | ID card, passport, and driver's license OCR via python-doctr |
+| Person Detection | `person` | Full-body detection and tracking via ultralytics |
+| All modules | `all` | Everything above |
+
+### Custom Dockerfile
+
+```dockerfile
+FROM ghcr.io/openbiometrics/api:latest
+
+# Add document processing support
+RUN pip install openbiometrics-engine[documents]
+
+# Or add everything
+# RUN pip install openbiometrics-engine[all]
+```
+
+### Docker Compose with All Modules
+
+```yaml
+# docker-compose.yml
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./watchlists:/app/watchlists
+      - ./models:/app/models
+    environment:
+      - MODULES=face,documents,person
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+```
+
+Where `Dockerfile` contains:
+
+```dockerfile
+FROM ghcr.io/openbiometrics/api:latest
+RUN pip install openbiometrics-engine[all]
+```
+
 ## Point Your SDK at It
 
 ```ts

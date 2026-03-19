@@ -1,0 +1,39 @@
+---
+title: OpenBiometrics
+description: Open-source biometric platform for developers
+template: splash
+hero:
+  title: Biometrics for developers
+  tagline: Face recognition, document processing, liveness detection, video analytics, and identity verification — as simple as an API call. Open source. Self-hostable. Edge-ready.
+  actions:
+    - text: Get Started
+      link: /introduction/
+      icon: right-arrow
+    - text: View on GitHub
+      link: https://github.com/drinkredwine/openbiometrics
+      icon: external
+      variant: minimal
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
+
+<CardGrid>
+  <Card title="Face Recognition" icon="magnifier">
+    Detect, verify, and identify faces with quality scoring, landmarks, demographics, and FAISS-powered 1:N search.
+  </Card>
+  <Card title="Document Processing" icon="document">
+    Extract data from identity documents with OCR, MRZ parsing, and document scanning — passports, IDs, driver's licenses.
+  </Card>
+  <Card title="Active Liveness" icon="approve-check">
+    Challenge-response anti-spoofing with guided actions. Prevents replay attacks, printed photos, and deepfakes.
+  </Card>
+  <Card title="Video Analytics" icon="seti:video">
+    Real-time person detection, tracking, and counting across camera feeds. Built for surveillance and access control.
+  </Card>
+  <Card title="Event System" icon="rocket">
+    Webhooks and real-time alerts for biometric events. Integrate with any downstream system or monitoring pipeline.
+  </Card>
+  <Card title="Self-Host Anywhere" icon="server">
+    Docker, Jetson, ARM, x86. Run on your own infrastructure — free, no API key required.
+  </Card>
+</CardGrid>

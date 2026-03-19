@@ -1,5 +1,5 @@
 import type { OpenBiometrics } from '../client';
-import type { Face } from '../types';
+import type { Face, LivenessSession, ChallengeType } from '../types';
 
 export class Liveness {
   constructor(private client: OpenBiometrics) {}
@@ -26,5 +26,46 @@ export class Liveness {
       is_live: face.liveness?.is_live ?? false,
       score: face.liveness?.score ?? 0,
     };
+  }
+
+  /**
+   * Create an interactive liveness session with challenge-response flow.
+   *
+   * @example
+   * ```ts
+   * const session = await ob.liveness.createSession({ challenges: ['blink', 'turn_left'] });
+   * console.log(`Session: ${session.session_id}`);
+   * ```
+   */
+  async createSession(options?: {
+    challenges?: ChallengeType[];
+    ttl_seconds?: number;
+  }): Promise<LivenessSession> {
+    return this.client.request<LivenessSession>('POST', '/liveness/sessions', options ?? {});
+  }
+
+  /**
+   * Submit a video frame to an active liveness session.
+   */
+  async submitFrame(
+    sessionId: string,
+    frame: Blob | ArrayBuffer | Uint8Array,
+  ): Promise<LivenessSession> {
+    const form = this.client.createForm(frame, { session_id: sessionId });
+    return this.client.request<LivenessSession>('POST', `/liveness/sessions/${sessionId}/frames`, form);
+  }
+
+  /**
+   * Get the current state of a liveness session.
+   */
+  async getSession(sessionId: string): Promise<LivenessSession> {
+    return this.client.request<LivenessSession>('GET', `/liveness/sessions/${sessionId}`);
+  }
+
+  /**
+   * Delete / cancel a liveness session.
+   */
+  async deleteSession(sessionId: string): Promise<void> {
+    await this.client.request('DELETE', `/liveness/sessions/${sessionId}`);
   }
 }

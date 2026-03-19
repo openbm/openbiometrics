@@ -1,14 +1,20 @@
 import { useEffect, useState } from 'react';
 import { getHealth, type HealthResponse } from '../api';
 
+interface ExtendedHealth extends HealthResponse {
+  active_modules?: number;
+  cameras_active?: number;
+  recent_events?: number;
+}
+
 export function StatusBar() {
-  const [health, setHealth] = useState<HealthResponse | null>(null);
+  const [health, setHealth] = useState<ExtendedHealth | null>(null);
   const [error, setError] = useState(false);
 
   useEffect(() => {
     const check = () =>
       getHealth()
-        .then((h) => { setHealth(h); setError(false); })
+        .then((h) => { setHealth(h as ExtendedHealth); setError(false); })
         .catch(() => setError(true));
 
     check();
@@ -42,6 +48,24 @@ export function StatusBar() {
       </div>
       <div className="text-gray-600">|</div>
       <div>Watchlist: {health.watchlist_count} faces</div>
+      {health.active_modules !== undefined && (
+        <>
+          <div className="text-gray-600">|</div>
+          <div>{health.active_modules} modules</div>
+        </>
+      )}
+      {health.cameras_active !== undefined && health.cameras_active > 0 && (
+        <>
+          <div className="text-gray-600">|</div>
+          <div>{health.cameras_active} cameras</div>
+        </>
+      )}
+      {health.recent_events !== undefined && health.recent_events > 0 && (
+        <>
+          <div className="text-gray-600">|</div>
+          <div>{health.recent_events} events</div>
+        </>
+      )}
     </div>
   );
 }
