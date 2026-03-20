@@ -1,0 +1,37 @@
+name: Claude Code Review
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+  issue_comment:
+    types: [created, edited]
+  pull_request_review_comment:
+    types: [created, edited]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    if: |
+      github.event_name == 'pull_request' ||
+      contains(github.event.comment.body, '@claude')
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: anthropics/claude-code-action@v1
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          prompt: |
+            You are the code reviewer for OpenBiometrics engine.
+
+            Review this PR for:
+            - Code quality, security, and consistency
+            - Python type hints and ruff compliance
+            - Are both SDKs (Node.js + Python) updated if API changed?
+            - Are docs updated?
+            - Tailwind CSS 4: inline classes only, never @apply
+            - No secrets or credentials committed
