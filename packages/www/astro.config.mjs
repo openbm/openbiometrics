@@ -9,7 +9,7 @@ export default defineConfig({
       title: 'OpenBiometrics',
       description: 'Open-source biometric platform for developers',
       social: [
-        { icon: 'github', label: 'GitHub', href: 'https://github.com/openbiometrics/openbiometrics' },
+        { icon: 'github', label: 'GitHub', href: 'https://github.com/drinkredwine/openbiometrics' },
       ],
       customCss: ['./src/styles/custom.css'],
       sidebar: [

@@ -7,15 +7,15 @@ hero:
   tagline: Face recognition, document processing, liveness detection, video analytics, and identity verification — as simple as an API call. Open source. Self-hostable. Edge-ready.
   actions:
     - text: Get Started
-      link: introduction/
+      link: /introduction/
       icon: right-arrow
-    - text: View on GitHub
-      link: https://github.com/drinkredwine/openbiometrics
+    - text: Try Live Demos
+      link: https://openbiometrics.dev/demos
       icon: external
       variant: minimal
 ---
 
-import { Card, CardGrid } from '@astrojs/starlight/components';
+import { Card, CardGrid, LinkCard } from '@astrojs/starlight/components';
 
 <CardGrid>
   <Card title="Face Recognition" icon="magnifier">
@@ -36,4 +36,13 @@ import { Card, CardGrid } from '@astrojs/starlight/components';
   <Card title="Self-Host Anywhere" icon="server">
     Docker, Jetson, ARM, x86. Run on your own infrastructure — free, no API key required.
   </Card>
+</CardGrid>
+
+## Quick Links
+
+<CardGrid>
+  <LinkCard title="API Reference" href="/api/face-detection/" description="Full endpoint docs for all 6 modules" />
+  <LinkCard title="Node.js SDK" href="/sdks/nodejs/" description="npm install openbiometrics" />
+  <LinkCard title="Python SDK" href="/sdks/python/" description="pip install openbiometrics" />
+  <LinkCard title="Self-Hosting" href="/self-hosting/docker/" description="Deploy with Docker in 60 seconds" />
 </CardGrid>
