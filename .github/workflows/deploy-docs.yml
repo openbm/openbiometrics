@@ -1,4 +1,4 @@
-name: Deploy docs to GitHub Pages
+name: Deploy docs to Cloudflare Pages
 
 on:
   push:
@@ -8,17 +8,8 @@ on:
       - '.github/workflows/deploy-docs.yml'
   workflow_dispatch:
 
-permissions:
-  contents: read
-  pages: write
-  id-token: write
-
-concurrency:
-  group: pages
-  cancel-in-progress: true
-
 jobs:
-  build:
+  deploy:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -35,16 +26,10 @@ jobs:
         working-directory: packages/www
         run: npx astro build
 
-      - uses: actions/upload-pages-artifact@v3
+      - name: Deploy to Cloudflare Pages
+        uses: cloudflare/wrangler-action@v3
         with:
-          path: packages/www/dist
-
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - id: deployment
-        uses: actions/deploy-pages@v4
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: bb64fc22a668fcd7e25f0032e91af400
+          command: pages deploy dist --project-name=openbiometrics-docs
+          workingDirectory: packages/www
