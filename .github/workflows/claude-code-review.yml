@@ -1,15 +1,16 @@
 name: Claude Code Review
 
 on:
-  pull_request:
-    types: [opened, synchronize]
+  schedule:
+    - cron: '0 7 * * *'  # Daily at 7am UTC
   issue_comment:
     types: [created, edited]
   pull_request_review_comment:
     types: [created, edited]
+  workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
   pull-requests: write
   issues: write
 
@@ -17,21 +18,28 @@ jobs:
   review:
     runs-on: ubuntu-latest
     if: |
-      github.event_name == 'pull_request' ||
+      github.event_name == 'schedule' ||
+      github.event_name == 'workflow_dispatch' ||
       contains(github.event.comment.body, '@claude')
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: anthropics/claude-code-action@v1
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           prompt: |
-            You are the code reviewer for OpenBiometrics engine.
+            You are the code reviewer and fixer for OpenBiometrics engine.
 
-            Review this PR for:
-            - Code quality, security, and consistency
-            - Python type hints and ruff compliance
-            - Are both SDKs (Node.js + Python) updated if API changed?
-            - Are docs updated?
-            - Tailwind CSS 4: inline classes only, never @apply
-            - No secrets or credentials committed
+            1. Review recent changes (last 24h): git log --since="24 hours ago" --oneline
+            2. If there are changes, review them for:
+               - Code quality, security, consistency
+               - Python type hints and ruff compliance
+               - Missing tests or docs
+               - Tailwind CSS 4: inline only, never @apply
+               - No secrets committed
+            3. If you find fixable issues, create a PR with the fixes
+            4. If you find issues that need human input, create a GitHub Issue
+
+            Be pragmatic — only flag real problems, not style nitpicks.
