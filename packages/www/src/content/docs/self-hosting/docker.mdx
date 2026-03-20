@@ -10,7 +10,7 @@ Run OpenBiometrics on your own infrastructure. Free, no API key required.
 ## Quick Start
 
 ```bash
-docker run -p 8000:8000 ghcr.io/openbiometrics/api:latest
+docker run -p 8000:8000 ghcr.ioapi:latest
 ```
 
 API available at `http://localhost:8000`. Swagger docs at `http://localhost:8000/docs`.
@@ -21,7 +21,7 @@ API available at `http://localhost:8000`. Swagger docs at `http://localhost:8000
 # docker-compose.yml
 services:
   api:
-    image: ghcr.io/openbiometrics/api:latest
+    image: ghcr.ioapi:latest
     ports:
       - "8000:8000"
     volumes:
@@ -42,7 +42,7 @@ docker compose up
 ## CPU Only
 
 ```bash
-docker run -p 8000:8000 -e DEVICE=cpu ghcr.io/openbiometrics/api:latest
+docker run -p 8000:8000 -e DEVICE=cpu ghcr.ioapi:latest
 ```
 
 ## Persistent Storage
@@ -53,7 +53,7 @@ Mount volumes for watchlists and models:
 docker run -p 8000:8000 \
   -v $(pwd)/watchlists:/app/watchlists \
   -v $(pwd)/models:/app/models \
-  ghcr.io/openbiometrics/api:latest
+  ghcr.ioapi:latest
 ```
 
 ## Optional Modules
@@ -70,7 +70,7 @@ The base image includes face detection, verification, and liveness. To enable ad
 ### Custom Dockerfile
 
 ```dockerfile
-FROM ghcr.io/openbiometrics/api:latest
+FROM ghcr.ioapi:latest
 
 # Add document processing support
 RUN pip install openbiometrics-engine[documents]
@@ -107,7 +107,7 @@ services:
 Where `Dockerfile` contains:
 
 ```dockerfile
-FROM ghcr.io/openbiometrics/api:latest
+FROM ghcr.ioapi:latest
 RUN pip install openbiometrics-engine[all]
 ```
 

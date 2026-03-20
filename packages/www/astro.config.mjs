@@ -3,8 +3,7 @@ import starlight from '@astrojs/starlight';
 import react from '@astrojs/react';
 
 export default defineConfig({
-  site: 'https://drinkredwine.github.io',
-  base: '/openbiometrics',
+  site: 'https://docs.openbiometrics.dev',
   integrations: [
     starlight({
       title: 'OpenBiometrics',

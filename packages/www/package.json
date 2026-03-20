@@ -1,7 +1,7 @@
 {
   "name": "@openbiometrics/www",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.3.0",
   "scripts": {
     "dev": "astro dev --port 4000",
     "build": "astro build",
